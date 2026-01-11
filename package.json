@@ -1,0 +1,107 @@
+{
+  "name": "lingo-tube",
+  "displayName": "LingoTube - Antigravity 专属 YouTube 英语学习助手",
+  "description": "LingoTube: 专为 Antigravity IDE 深度定制的 YouTube 英语学习插件。利用 AI 拆解长难句，实现母语级精听。",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "publisher": "kylesean",
+  "icon": "media/youtube-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kylesean/lingo-tube"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "youtube",
+    "英语学习",
+    "视频",
+    "字幕",
+    "翻译",
+    "AI",
+    "语法分析"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "enabledApiProposals": [
+    "chatParticipantAdditions",
+    "languageModelSystem"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "lingoTube",
+          "title": "LingoTube",
+          "icon": "media/youtube-icon.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "lingoTube.aiSummarize",
+        "title": "AI 视频摘要",
+        "category": "LingoTube"
+      }
+    ],
+    "views": {
+      "lingoTube": [
+        {
+          "type": "webview",
+          "id": "lingoTube.youtubeView",
+          "name": "视频播放器",
+          "icon": "media/youtube-icon.svg"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "LingoTube",
+      "properties": {
+        "lingoTube.ai.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "自定义 AI API 密钥（OpenAI 兼容协议）。如果为空，将优先使用 IDE 内置 AI。"
+        },
+        "lingoTube.ai.baseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "自定义 AI 服务的接口地址。"
+        },
+        "lingoTube.ai.model": {
+          "type": "string",
+          "default": "gpt-4",
+          "description": "AI 模型名称。"
+        },
+        "lingoTube.ai.autoSelectFamilyTimeout": {
+          "type": "number",
+          "default": 1000,
+          "description": "自动检测 AI 模型时的超时时间（毫秒）。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.99.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "eslint": "^9.23.0",
+    "typescript": "^5.8.2",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1"
+  }
+}
