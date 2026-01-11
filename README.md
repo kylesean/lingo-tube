@@ -1,6 +1,6 @@
-# LingoTube - Antigravity 专属 YouTube 英语学习助手
+# LingoTube - Antigravity、Cursor 等 VS Code Fork IDEs YouTube 英语学习助手
 
-LingoTube 是一款**专为 Antigravity IDE 量身打造**的英语精听学习插件。
+LingoTube 是一款**专为 Antigravity、Cursor 等 VS Code Fork IDEs 量身打造**的英语精听学习插件。
 
 > **为什么开发这个插件？**
 > Vibe Coding 时经常需要等待 AI 输出，这段时间很容易被浪费，不如一起来学习英语吧。但我又不想切换到其他独立的窗口或进程（比如浏览器），所以我开发了这个“摸鱼（学习）”插件！
@@ -8,11 +8,11 @@ LingoTube 是一款**专为 Antigravity IDE 量身打造**的英语精听学习�
 ![LingoTube 预览](media/screenshot.png)
 
 
-⚠️ **重要说明**：由于原生 VS Code 及其内置 browser 内核缺乏对 **AAC 音频格式** 的解码支持，导致无法直接播放 YouTube 视频流，所以 VS Code 中安装此插件不会有音频。其他 VS Code Fork IDEs 并未测试。
+⚠️ **重要说明**：由于原生 VS Code 及其内置 browser 内核缺乏对 **AAC 音频格式** 的解码支持，导致无法直接播放 YouTube 视频流，所以 VS Code 中安装此插件不会有音频。 Antigravity、Cursor 测试通过，其他 forks 未测试。
 
 ## ✨ 功能特点
 
-- 🎬 **原生级播放体验** - 在 Antigravity 活动栏或编辑器侧边栏直接流畅播放 YouTube 视频。
+- 🎬 **原生级播放体验** - 在 Antigravity、Cursor 等 IDE 活动栏或编辑器侧边栏直接流畅播放 YouTube 视频。
 - 📝 **智能同步字幕** - 自动抓取并同步显示双语字幕，支持实时滚动。
 - 🔤 **即点即译 (Smart Lookup)** - 视频播放中，点击字幕中的任意单词，利用 AI 立即提供音标、释义及用法。
 - 🤖 **AI 视频摘要** - 一键提取视频核心内容，自动生成结构清晰的学习笔记。
@@ -30,7 +30,7 @@ LingoTube 是一款**专为 Antigravity IDE 量身打造**的英语精听学习�
 
 ## 📖 使用指南
 
-1. **启动插件**：点击 Antigravity 活动栏的 **LingoTube** 图标。
+1. **启动插件**：点击 Antigravity、Cursor 等 IDE 活动栏的 **LingoTube** 图标。
 2. **加载视频**：在搜索框输入任意 YouTube 视频链接或 ID，回车即可开始播放。
 3. **AI 辅助**：直接点击侧边栏中的 **AI 视频摘要** 或 **语法分析** 按钮获取结果。
 
@@ -48,4 +48,4 @@ LingoTube 是一款**专为 Antigravity IDE 量身打造**的英语精听学习�
 
 ---
 
-**LingoTube** - Antigravity Vibe Coding 时抽空学习英语的利器。
+**LingoTube** - Antigravity、Cursor 等 IDE Vibe Coding 时抽空学习英语的利器。
