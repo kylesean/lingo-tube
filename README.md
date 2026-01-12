@@ -17,7 +17,10 @@ LingoTube 是一款**专为 Antigravity、Cursor 等 VS Code Fork IDEs 量身打
 - **即点即译 (Smart Lookup)** - 视频播放中，点击字幕中的任意单词，利用 AI 立即提供音标、释义及用法。
 - **AI 视频摘要** - 一键提取视频核心内容，自动生成结构清晰的学习笔记。
 - **深度语法分析** - 遇到长难句？AI 帮你拆解句子结构，分析核心语法点。
-- **AI 模型灵活性** - ~~完美适配 Antigravity 内置语言模型 (需有 AI 订阅)(vscode 是支持的，但是 antigravity 没有开放chat api)~~；同时支持自定义 OpenAI 兼容接口（如 DeepSeek, Ollama 等）。
+- **双重隐私防护 (Privacy First)** - 
+  - **听力模式 (Listening Mode)**：一键隐藏视频，保留字幕和音频。
+  - **伪装模式 (Camouflage Mode)**：快捷键 **Alt+Q**，瞬间将界面伪装为 VS Code 代码风格。
+- **AI 模型灵活性** - 支持自定义 OpenAI 兼容接口（如 DeepSeek, Ollama 等）。
 
 ## 安装环境
 

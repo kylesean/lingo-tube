@@ -2,7 +2,7 @@
     "name": "lingo-tube",
     "displayName": "LingoTube - Antigravity 专属 YouTube 英语学习助手",
     "description": "LingoTube: 专为 Antigravity IDE 深度定制的 YouTube 英语学习插件。利用 AI 拆解长难句，实现母语级精听。",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "engines": {
         "vscode": "^1.90.0"
     },
