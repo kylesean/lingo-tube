@@ -35,11 +35,16 @@ LingoTube 是一款**专为 Antigravity、Cursor 等 VS Code Fork IDEs 量身打
   - Linux: `sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && sudo chmod a+rx /usr/local/bin/yt-dlp`
   - Windows: `scoop install yt-dlp`
 
-## 使用指南
-
 1. **启动插件**：点击 Antigravity、Cursor 等 IDE 活动栏的 **LingoTube** 图标。
 2. **加载视频**：在搜索框输入任意 YouTube 视频链接或 ID，回车即可开始播放。
-3. **AI 辅助**：直接点击侧边栏中的 **AI 视频摘要** 按钮获取结果。
+3. **隐私切换**：
+    - 点击 👁️ 进入 **听力模式**（仅隐藏视频）。
+    - 敲击 **`Alt + Q`** 瞬间切换 **伪装模式**（Boss Key，深度代码化伪装）。
+4. **AI 辅助**：直接点击侧边栏中的 **AI 视频摘要** 按钮获取结果。
+
+## 更新日志
+
+详情请参见 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## AI 配置自定义
 
