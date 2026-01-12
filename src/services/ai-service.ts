@@ -25,6 +25,10 @@ export class AIService implements IAIService {
         .map((e: SubtitleEvent) => e.segs!.map(s => s.utf8).join(''))
         .join(' ')
         .replace(/\s+/g, ' ')
+        .replace(/>>/g, '')  // Remove >> markers
+        .replace(/\[.*?\]/g, '')  // Remove [Music], [Applause] etc.
+        .replace(/♪[^♪]*♪/g, '')  // Remove music notes
+        .replace(/\s+/g, ' ')  // Normalize spaces again
         .trim();
     } catch {
       this._currentSubs = String(subs);
@@ -32,9 +36,42 @@ export class AIService implements IAIService {
   }
 
   async translate(text: string, context?: string): Promise<string> {
-    const prompt = context
-      ? `请翻译选中的内容 "${text}"。语境为: "${context}"。直接给出翻译和简单的用法说明。`
-      : `请翻译内容: "${text}"。如果是单词，给出音标、词性和中文含义。`;
+    // Clean the text before sending to AI
+    const cleanText = text.replace(/>>/g, '').replace(/\[.*?\]/g, '').trim();
+    const cleanContext = context?.replace(/>>/g, '').replace(/\[.*?\]/g, '').trim();
+
+    // Detect if it's a single word or a phrase/sentence
+    const isSingleWord = !/\s/.test(cleanText) && cleanText.length < 20;
+
+    let prompt: string;
+    if (isSingleWord) {
+      // Single word: ask for phonetic, part of speech, meaning
+      prompt = `单词: ${cleanText}
+
+请给出这个英语单词的：
+1. 音标
+2. 词性
+3. 中文释义
+4. 例句（可选，简短）
+
+格式简洁，一两行即可。`;
+    } else {
+      // Phrase or sentence: direct translation
+      prompt = cleanContext
+        ? `翻译以下英文为中文：
+
+"${cleanText}"
+
+语境参考：${cleanContext}
+
+直接给出翻译即可，不需要解释。`
+        : `翻译以下英文为中文：
+
+"${cleanText}"
+
+直接给出翻译即可。`;
+    }
+
     return this.callAI(prompt, SYSTEM_PROMPTS.translate);
   }
 

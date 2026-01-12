@@ -28,6 +28,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken
   ): void {
     this._view = webviewView;
+    webviewView.title = ''; // Hide the view title programmatically
 
     // 配置 Webview 选项
     webviewView.webview.options = {
@@ -36,7 +37,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
     };
 
     // 设置 HTML 内容
-    webviewView.webview.html = generateWebviewContent(webviewView.webview);
+    webviewView.webview.html = generateWebviewContent(webviewView.webview, this.extensionUri);
 
     // 恢复视频上下文
     this.restoreVideoContext();

@@ -32,7 +32,7 @@ LingoTube 是一款**专为 Antigravity、Cursor 等 VS Code Fork IDEs 量身打
 
 1. **启动插件**：点击 Antigravity、Cursor 等 IDE 活动栏的 **LingoTube** 图标。
 2. **加载视频**：在搜索框输入任意 YouTube 视频链接或 ID，回车即可开始播放。
-3. **AI 辅助**：直接点击侧边栏中的 **AI 视频摘要** 或 **语法分析** 按钮获取结果。
+3. **AI 辅助**：直接点击侧边栏中的 **AI 视频摘要** 按钮获取结果。
 
 ## AI 配置自定义
 
