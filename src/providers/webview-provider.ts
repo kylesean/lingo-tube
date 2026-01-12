@@ -88,7 +88,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
 
     switch (message.type) {
       case 'search':
-        await this.handleSearch(message.value || '');
+        await this.handleSearch(typeof message.value === 'string' ? message.value : '');
         break;
 
       case 'translate':
@@ -96,7 +96,14 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'aiAction':
-        await this.triggerAI(message.value || '', message.text);
+        await this.triggerAI(typeof message.value === 'string' ? message.value : '', message.text);
+        break;
+
+      case 'camouflageState':
+        if (this._view) {
+          // 当开启伪装模式时，将标题改为极其普通的 "Output"
+          this._view.title = message.value ? 'Output' : 'LingoTube';
+        }
         break;
 
       case 'openExternal':

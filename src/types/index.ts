@@ -6,8 +6,8 @@ import * as vscode from 'vscode';
 
 /** Webview 消息类型 */
 export interface WebviewMessage {
-  type: 'search' | 'translate' | 'aiAction' | 'openExternal';
-  value?: string;
+  type: 'search' | 'translate' | 'aiAction' | 'openExternal' | 'camouflageState';
+  value?: string | boolean;
   id?: string;
   text?: string;
   context?: string; // 翻译时的句子上下文

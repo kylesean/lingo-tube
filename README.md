@@ -5,7 +5,11 @@ LingoTube 是一款**专为 Antigravity、Cursor 等 VS Code Fork IDEs 量身打
 > **为什么开发这个插件？**
 > Vibe Coding 时经常需要等待 AI 输出，这段时间很容易被浪费，不如一起来学习英语吧。但我又不想切换到其他独立的窗口或进程（比如浏览器），所以我开发了这个“摸鱼（学习）”插件！
 
-![LingoTube 预览](media/screenshot.png)
+### 正常模式 (Normal Mode)
+![LingoTube 播放演示](media/usage_demo.png)
+
+### 伪装模式 (Camouflage Mode) - 极致隐蔽
+![LingoTube 伪装演示](media/stealth_mode.png)
 
 
  **重要说明**：由于原生 VS Code 及其内置 browser 内核缺乏对 **AAC 音频格式** 的解码支持，导致无法直接播放 YouTube 视频流，所以 VS Code 中安装此插件不会有音频。 Antigravity、Cursor 测试通过，其他 forks 未测试。

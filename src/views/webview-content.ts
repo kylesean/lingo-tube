@@ -547,6 +547,8 @@ if (saved) {
   if (state.camouflageMode) {
     document.body.classList.add('camouflage-mode');
     document.getElementById('camouflageBtn').classList.add('active');
+    // Notify extension on load to sync title
+    vscode.postMessage({ type: 'camouflageState', value: true });
   }
   if (state.streamUrl) {
     loadVideo(state.streamUrl, state.videoId, state.subs, state.currentTime);
@@ -566,6 +568,10 @@ const toggleCamouflage = () => {
   state.camouflageMode = !state.camouflageMode;
   document.body.classList.toggle('camouflage-mode', state.camouflageMode);
   document.getElementById('camouflageBtn').classList.toggle('active', state.camouflageMode);
+  
+  // Notify extension to change side bar title
+  vscode.postMessage({ type: 'camouflageState', value: state.camouflageMode });
+  
   save();
 };
 
