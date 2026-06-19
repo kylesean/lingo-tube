@@ -2,7 +2,7 @@
     "name": "lingo-tube",
     "displayName": "LingoTube",
     "description": "AI 驱动的 YouTube 英语学习助手，支持同步字幕、语法分析与隐蔽模式。",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "engines": {
         "vscode": "^1.90.0"
     },

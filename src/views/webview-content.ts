@@ -536,10 +536,17 @@ let state = {
 
 marked.setOptions({ gfm: true, breaks: true });
 
-const saved = vscode.getState();
-if (saved) {
+// Restore persisted state only after the document is fully ready.
+// This prevents the "InvalidStateError: Failed to register a ServiceWorker:
+// The document is in an invalid state" error that occurs when media loading
+// is triggered before the Webview document has fully initialized.
+function restoreState() {
+  const saved = vscode.getState();
+  if (!saved) return;
+
   state = { ...state, ...saved };
   els.input.value = state.inputValue || '';
+
   if (state.listeningMode) {
     document.body.classList.add('listening-mode');
     document.getElementById('listeningBtn').classList.add('active');
@@ -553,6 +560,14 @@ if (saved) {
   if (state.streamUrl) {
     loadVideo(state.streamUrl, state.videoId, state.subs, state.currentTime);
   }
+}
+
+// Use DOMContentLoaded to ensure the document is in a valid state before
+// restoring video/UI state. Falls back to immediate execution if already ready.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', restoreState);
+} else {
+  restoreState();
 }
 
 // Listening mode toggle (Just hide video)

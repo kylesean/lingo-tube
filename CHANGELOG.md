@@ -2,6 +2,11 @@
 
 本项目所有的显著变更都将记录在本文档中。
 
+## [1.2.3] - 2026-06-19
+
+### 修复
+- **Webview 启动崩溃**：修复插件 Webview 在恢复上次状态时偶发 `InvalidStateError: Failed to register a ServiceWorker: The document is in an invalid state` 错误。根本原因是顶层脚本在 `document.readyState` 仍为 `loading` 时就直接调用 `loadVideo()`，导致 Chromium 在文档未就绪期间触发媒体/网络请求。现已将状态恢复逻辑延迟至 `DOMContentLoaded` 事件后执行，彻底消除该竞态问题，无需再通过清除缓存来规避。
+
 ## [1.2.2] - 2026-01-13
 
 ### 优化
