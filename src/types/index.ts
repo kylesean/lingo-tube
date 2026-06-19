@@ -58,6 +58,20 @@ export interface VideoContext {
   subs: string;
 }
 
+/** yt-dlp JSON output (partial - only fields used by VideoService) */
+export interface YtDlpOutput {
+  url?: string;
+  title?: string;
+  subtitles?: Record<string, Array<{ ext: string; url: string }>>;
+  automatic_captions?: Record<string, Array<{ ext: string; url: string }>>;
+}
+
+/** Subtitle track entry from yt-dlp output */
+export interface YtDlpSubtitleTrack {
+  ext: string;
+  url: string;
+}
+
 /** AI 服务接口 */
 export interface IAIService {
   updateContext(title: string, subs: unknown): void;

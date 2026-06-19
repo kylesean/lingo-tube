@@ -2,18 +2,22 @@
  * 视频服务 - 负责获取 YouTube 视频流和字幕
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as https from 'https';
-import { VideoStreamInfo, SubtitleData, IVideoService } from '../types';
+import { VideoStreamInfo, SubtitleData, IVideoService, YtDlpOutput, YtDlpSubtitleTrack } from '../types';
+import { logger } from './logger';
 
 export class VideoService implements IVideoService {
-  /** yt-dlp 命令超时时间（毫秒） */
+  /** yt-dlp command timeout (ms) */
   private readonly timeout = 30000;
 
-  /** 视频格式选择（优先高清，退回标清） */
+  /** Subtitle download timeout (ms) */
+  private readonly subtitleTimeout = 10000;
+
+  /** Video format selector (prefer HD, fallback to SD) */
   private readonly formatSelector = '22/18';
 
-  /** 字幕语言优先级 */
+  /** Subtitle language priority */
   private readonly subtitleLangPriority = ['en', 'zh-Hans', 'zh-Hant', 'zh', 'en-orig'];
 
   /**
@@ -25,18 +29,19 @@ export class VideoService implements IVideoService {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
 
     return new Promise((resolve) => {
-      exec(
-        `yt-dlp -f "${this.formatSelector}" -j "${url}"`,
+      execFile(
+        'yt-dlp',
+        ['-f', this.formatSelector, '-j', url],
         { timeout: this.timeout },
         async (error, stdout) => {
           if (error) {
-            console.error('[@yt] yt-dlp 错误:', error.message);
+            logger.error('yt-dlp 错误:', error.message);
             resolve(null);
             return;
           }
 
           try {
-            const info = JSON.parse(stdout);
+            const info: YtDlpOutput = JSON.parse(stdout);
             const streamUrl = info.url;
             const title = info.title || '';
 
@@ -45,7 +50,7 @@ export class VideoService implements IVideoService {
               return;
             }
 
-            // 获取字幕
+            // Fetch subtitles
             const subtitles = await this.fetchSubtitles(info);
 
             resolve({
@@ -54,7 +59,7 @@ export class VideoService implements IVideoService {
               subtitles
             });
           } catch (e) {
-            console.error('[@yt] JSON 解析错误:', e);
+            logger.error('JSON 解析错误:', e);
             resolve(null);
           }
         }
@@ -68,15 +73,15 @@ export class VideoService implements IVideoService {
    * @returns 视频 ID，无效输入返回 null
    */
   extractVideoId(input: string): string | null {
-    // 匹配各种 YouTube URL 格式 (包括 standard, short, embed, shorts)
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    // Match various YouTube URL formats (standard, short, embed, shorts)
+    const regex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
     const match = input.match(regex);
 
     if (match) {
       return match[1];
     }
 
-    // 如果输入本身就是 11 位字符，视为视频 ID
+    // If input itself is 11 characters, treat as video ID
     if (input.trim().length === 11 && /^[a-zA-Z0-9_-]+$/.test(input.trim())) {
       return input.trim();
     }
@@ -87,26 +92,27 @@ export class VideoService implements IVideoService {
   /**
    * 获取视频字幕
    */
-  private async fetchSubtitles(videoInfo: any): Promise<SubtitleData | undefined> {
+  private async fetchSubtitles(videoInfo: YtDlpOutput): Promise<SubtitleData | undefined> {
     const hasManualSubs = videoInfo.subtitles && Object.keys(videoInfo.subtitles).length > 0;
-    const subSource = hasManualSubs ? videoInfo.subtitles : (videoInfo.automatic_captions || {});
+    const subSource = hasManualSubs ? videoInfo.subtitles! : (videoInfo.automatic_captions || {});
 
-    // 按优先级查找字幕
-    let selectedSub = null;
+    // Find subtitle by language priority
+    let selectedSub: YtDlpSubtitleTrack | null = null;
     for (const lang of this.subtitleLangPriority) {
       if (subSource[lang]) {
-        selectedSub = subSource[lang].find((s: any) => s.ext === 'json3');
-        if (selectedSub) {
+        const found = subSource[lang].find((s: YtDlpSubtitleTrack) => s.ext === 'json3');
+        if (found) {
+          selectedSub = found;
           break;
         }
       }
     }
 
-    // 如果没有找到优先语言，使用第一个可用的
+    // If no preferred language found, use the first available
     if (!selectedSub) {
       const firstLang = Object.keys(subSource)[0];
       if (firstLang) {
-        selectedSub = subSource[firstLang].find((s: any) => s.ext === 'json3');
+        selectedSub = subSource[firstLang].find((s: YtDlpSubtitleTrack) => s.ext === 'json3') || null;
       }
     }
 
@@ -114,9 +120,11 @@ export class VideoService implements IVideoService {
       return undefined;
     }
 
-    // 下载字幕内容
+    const subtitleUrl = selectedSub.url;
+
+    // Download subtitle content (with timeout)
     return new Promise((resolve) => {
-      https.get(selectedSub.url, (resp) => {
+      const req = https.get(subtitleUrl, (resp) => {
         let data = '';
         resp.on('data', (chunk: Buffer) => data += chunk.toString());
         resp.on('end', () => {
@@ -126,8 +134,16 @@ export class VideoService implements IVideoService {
             resolve(undefined);
           }
         });
-      }).on('error', (err) => {
-        console.error('[@yt] 字幕获取失败:', err.message);
+      });
+
+      req.on('error', (err) => {
+        logger.error('字幕获取失败:', err.message);
+        resolve(undefined);
+      });
+
+      req.setTimeout(this.subtitleTimeout, () => {
+        logger.warn('字幕下载超时，已取消请求');
+        req.destroy();
         resolve(undefined);
       });
     });

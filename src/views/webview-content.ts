@@ -534,7 +534,27 @@ let state = {
   camouflageMode: false
 };
 
+let lastSaveTime = 0;
+
 marked.setOptions({ gfm: true, breaks: true });
+
+// Escape HTML special characters to prevent XSS in text content
+function escapeHtml(str) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return str.replace(/[&<>"']/g, c => map[c]);
+}
+
+// Strip dangerous HTML tags from rendered markdown output
+function sanitizeHtml(html) {
+  return html
+    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
+    .replace(/<iframe[\\s\\S]*?<\\/iframe>/gi, '')
+    .replace(/<form[\\s\\S]*?<\\/form>/gi, '')
+    .replace(/<object[\\s\\S]*?>/gi, '')
+    .replace(/<embed[\\s\\S]*?>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\\w+\\s*=/gi, '');
+}
 
 // Restore persisted state only after the document is fully ready.
 // This prevents the "InvalidStateError: Failed to register a ServiceWorker:
@@ -631,7 +651,11 @@ function loadVideo(url, id, subs, start) {
   v.ontimeupdate = () => {
     const t = v.currentTime;
     updateActiveSub(t);
-    if (Math.floor(t) % 5 === 0) save();
+    const now = Date.now();
+    if (now - lastSaveTime > 5000) {
+      save();
+      lastSaveTime = now;
+    }
   };
 
   v.onpause = save;
@@ -643,9 +667,9 @@ function renderSubs() {
     const words = s.text.split(/(\\s+)/).map(seg => {
       if (seg.trim()) {
         const clean = seg.replace(/[^a-zA-Z0-9']/g, '');
-        return '<span class="word" data-word="' + clean + '" data-line="' + i + '">' + seg + '</span>';
+        return '<span class="word" data-word="' + escapeHtml(clean) + '" data-line="' + i + '">' + escapeHtml(seg) + '</span>';
       }
-      return seg;
+      return escapeHtml(seg);
     }).join('');
     return '<div class="subtitle-line" id="sub-' + i + '" data-time="' + s.start + '">' + words + '</div>';
   }).join('');
@@ -808,14 +832,14 @@ window.addEventListener('message', e => {
     loadVideo(m.url, m.id, parseSubs(m.subs), (v && v.currentTime > 0) ? v.currentTime : 0);
   } else if (m.type === 'translationResult') {
     // Show translation in tooltip
-    els.tooltipContent.innerHTML = '<div class="markdown-body">' + (marked.parse ? marked.parse(m.translation) : m.translation) + '</div>';
+    els.tooltipContent.innerHTML = '<div class="markdown-body">' + sanitizeHtml(marked.parse ? marked.parse(m.translation) : escapeHtml(m.translation)) + '</div>';
   } else if (m.type === 'aiResponse') {
     els.aiPanel.style.display = 'block';
-    els.aiPanel.querySelector('.panel-content').innerHTML = '<div class="markdown-body">' + (marked.parse ? marked.parse(m.content) : m.content) + '</div>';
+    els.aiPanel.querySelector('.panel-content').innerHTML = '<div class="markdown-body">' + sanitizeHtml(marked.parse ? marked.parse(m.content) : escapeHtml(m.content)) + '</div>';
   } else if (m.type === 'loading') {
     els.player.innerHTML = '<div class="loading-spinner"></div>';
   } else if (m.type === 'error') {
-    els.player.innerHTML = '<div style="color:red;padding:20px">' + m.message + '</div>';
+    els.player.innerHTML = '<div style="color:red;padding:20px">' + escapeHtml(m.message) + '</div>';
   }
 });
 

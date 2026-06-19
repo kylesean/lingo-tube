@@ -4,8 +4,9 @@
 
 import * as vscode from 'vscode';
 import { WebviewMessage, VideoContext, IAIService, IVideoService } from '../types';
-import { ERROR_MESSAGES, UI_TEXT } from '../constants/prompts';
+import { ERROR_MESSAGES } from '../constants/prompts';
 import { generateWebviewContent } from '../views/webview-content';
+import { logger } from '../services/logger';
 
 export class WebviewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'lingoTube.youtubeView';
@@ -84,7 +85,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
    * 处理来自 Webview 的消息
    */
   private async handleMessage(message: WebviewMessage): Promise<void> {
-    console.log('[@yt] 收到 Webview 消息:', message.type);
+    logger.info('收到 Webview 消息:', message.type);
 
     switch (message.type) {
       case 'search':
@@ -123,14 +124,14 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    console.log('[@yt] 开始获取视频:', videoId);
+    logger.info('开始获取视频:', videoId);
     this._view?.webview.postMessage({ type: 'loading' });
 
     try {
       const result = await this.videoService.getStreamInfo(videoId);
 
       if (result) {
-        console.log('[@yt] 视频获取成功:', result.title);
+        logger.info('视频获取成功:', result.title);
 
         // 更新 AI 上下文
         this.aiService.updateContext(result.title, result.subtitles);
@@ -146,14 +147,14 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
           subs: result.subtitles
         });
       } else {
-        console.log('[@yt] 视频获取失败');
+        logger.warn('视频获取失败');
         this._view?.webview.postMessage({
           type: 'error',
           message: ERROR_MESSAGES.streamFailed
         });
       }
     } catch (error) {
-      console.error('[@yt] 视频获取错误:', error);
+      logger.error('视频获取错误:', error);
       this._view?.webview.postMessage({
         type: 'error',
         message: String(error)
@@ -207,7 +208,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
       subs: typeof subs === 'string' ? subs : JSON.stringify(subs)
     };
     this.context.globalState.update('lingoTube.videoContext', context);
-    console.log('[@yt] 视频上下文已保存');
+    logger.info('视频上下文已保存');
   }
 
   /**
@@ -216,7 +217,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
   private restoreVideoContext(): void {
     const savedContext = this.context.globalState.get<VideoContext>('lingoTube.videoContext');
     if (savedContext) {
-      console.log('[@yt] 恢复视频上下文:', savedContext.title);
+      logger.info('恢复视频上下文:', savedContext.title);
       this.aiService.updateContext(savedContext.title, savedContext.subs);
     }
   }

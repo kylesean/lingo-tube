@@ -7,6 +7,10 @@ import * as https from 'https';
 import * as http from 'http';
 import { IAIService, SubtitleData, SubtitleEvent } from '../types';
 import { SYSTEM_PROMPTS, ERROR_MESSAGES, CONFIG_KEYS, DEFAULT_CONFIG } from '../constants/prompts';
+import { logger } from './logger';
+
+/** HTTP request timeout for custom API calls (ms) */
+const API_REQUEST_TIMEOUT = 60000;
 
 export class AIService implements IAIService {
   private _currentVideoTitle = '';
@@ -46,30 +50,12 @@ export class AIService implements IAIService {
     let prompt: string;
     if (isSingleWord) {
       // Single word: ask for phonetic, part of speech, meaning
-      prompt = `单词: ${cleanText}
-
-请给出这个英语单词的：
-1. 音标
-2. 词性
-3. 中文释义
-4. 例句（可选，简短）
-
-格式简洁，一两行即可。`;
+      prompt = `单词: ${cleanText}\n\n请给出这个英语单词的：\n1. 音标\n2. 词性\n3. 中文释义\n4. 例句（可选，简短）\n\n格式简洁，一两行即可。`;
     } else {
       // Phrase or sentence: direct translation
       prompt = cleanContext
-        ? `翻译以下英文为中文：
-
-"${cleanText}"
-
-语境参考：${cleanContext}
-
-直接给出翻译即可，不需要解释。`
-        : `翻译以下英文为中文：
-
-"${cleanText}"
-
-直接给出翻译即可。`;
+        ? `翻译以下英文为中文：\n\n"${cleanText}"\n\n语境参考：${cleanContext}\n\n直接给出翻译即可，不需要解释。`
+        : `翻译以下英文为中文：\n\n"${cleanText}"\n\n直接给出翻译即可。`;
     }
 
     return this.callAI(prompt, SYSTEM_PROMPTS.translate);
@@ -122,12 +108,13 @@ export class AIService implements IAIService {
     const apiKey = config.get<string>(CONFIG_KEYS.apiKey);
     const baseUrl = config.get<string>(CONFIG_KEYS.baseUrl);
 
-    // 如果配置了 API Key 或指定了非默认的 Base URL（如本地 Ollama），使用自定义 API
+    // Use custom API if API key is set or a non-default base URL is configured
     if (apiKey || (baseUrl && !baseUrl.includes('openai.com'))) {
       return this.callCustomAPI(prompt, systemPrompt, stream, token);
     }
 
-    // 否则尝试使用内置 AI
+    // Otherwise try built-in AI
+    let cts: vscode.CancellationTokenSource | undefined;
     try {
       const models = await vscode.lm.selectChatModels();
       const model = models[0];
@@ -141,7 +128,11 @@ export class AIService implements IAIService {
         vscode.LanguageModelChatMessage.User(prompt)
       ];
 
-      const request = await model.sendRequest(messages, {}, token || new vscode.CancellationTokenSource().token);
+      if (!token) {
+        cts = new vscode.CancellationTokenSource();
+      }
+
+      const request = await model.sendRequest(messages, {}, token ?? cts!.token);
       let result = '';
       for await (const chunk of request.text) {
         stream?.markdown(chunk);
@@ -149,8 +140,10 @@ export class AIService implements IAIService {
       }
       return result;
     } catch (err) {
-      console.error('Built-in AI failed:', err);
+      logger.error('Built-in AI failed:', err);
       return ERROR_MESSAGES.aiConfigMissing;
+    } finally {
+      cts?.dispose();
     }
   }
 
@@ -179,6 +172,18 @@ export class AIService implements IAIService {
       };
 
       const req = client.request(url, options, (res) => {
+        // Check HTTP status code
+        if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+          let errorBody = '';
+          res.on('data', (chunk) => errorBody += chunk.toString());
+          res.on('end', () => {
+            const msg = `API 请求失败 (HTTP ${res.statusCode}): ${errorBody.substring(0, 200)}`;
+            logger.error(msg);
+            reject(new Error(msg));
+          });
+          return;
+        }
+
         let result = '';
         let buffer = '';
 
@@ -189,7 +194,7 @@ export class AIService implements IAIService {
 
           for (const line of lines) {
             const trimmedLine = line.trim();
-            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+            if (!trimmedLine || trimmedLine === 'data: [DONE]') { continue; }
 
             if (trimmedLine.startsWith('data: ')) {
               try {
@@ -199,8 +204,8 @@ export class AIService implements IAIService {
                   result += content;
                   stream?.markdown(content);
                 }
-              } catch (e) {
-                // 忽略解析错误（可能是 incomplete chunk）
+              } catch {
+                // Ignore parse errors from incomplete SSE chunks
               }
             }
           }
@@ -209,8 +214,14 @@ export class AIService implements IAIService {
       });
 
       req.on('error', (err) => {
-        console.error('[@yt] API Request Error:', err);
+        logger.error('API Request Error:', err);
         reject(err);
+      });
+
+      // Request timeout
+      req.setTimeout(API_REQUEST_TIMEOUT, () => {
+        logger.warn('API 请求超时，已取消');
+        req.destroy(new Error('API request timeout'));
       });
 
       req.write(JSON.stringify({
