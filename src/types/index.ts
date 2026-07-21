@@ -6,18 +6,31 @@ import * as vscode from 'vscode';
 
 /** Webview 消息类型 */
 export interface WebviewMessage {
-  type: 'search' | 'translate' | 'aiAction' | 'openExternal' | 'camouflageState';
+  type: 'search' | 'translate' | 'aiAction' | 'openExternal' | 'camouflageState' | 'saveVocabulary';
   value?: string | boolean;
   id?: string;
   text?: string;
-  context?: string; // 翻译时的句子上下文
+  context?: string;
+  vocabulary?: VocabularyItem[];
+}
+
+/** 生词本条目 */
+export interface VocabularyItem {
+  word: string;
+  meaning: string;
 }
 
 /** 视频流信息 */
 export interface VideoStreamInfo {
   streamUrl: string;
   title: string;
-  subtitles?: SubtitleData;
+  subtitles?: SubtitleLine[];
+  /** 独立音频流 URL（如 Opus/WebM）。存在时需与视频流分离同步播放 */
+  audioUrl?: string;
+  /** 视频流容器扩展名，如 'webm' | 'mp4'，用于设置正确的 MIME 类型 */
+  container?: string;
+  /** 音频流容器扩展名，如 'webm' | 'm4a' */
+  audioContainer?: string;
 }
 
 /** 字幕数据 */
@@ -58,10 +71,25 @@ export interface VideoContext {
   subs: string;
 }
 
+/** yt-dlp 选中的单个格式条目（requested_formats 元素） */
+export interface YtDlpRequestedFormat {
+  url?: string;
+  ext?: string;
+  /** 视频编码，如 'vp9'；纯音频流为 'none' */
+  vcodec?: string;
+  /** 音频编码，如 'opus'；纯视频流为 'none' */
+  acodec?: string;
+  height?: number;
+}
+
 /** yt-dlp JSON output (partial - only fields used by VideoService) */
 export interface YtDlpOutput {
   url?: string;
+  /** 单一（合并）格式的容器扩展名，如 'mp4' | 'webm' */
+  ext?: string;
   title?: string;
+  /** 选择 "video+audio" 组合格式时，yt-dlp 在此返回分离的流列表 */
+  requested_formats?: YtDlpRequestedFormat[];
   subtitles?: Record<string, Array<{ ext: string; url: string }>>;
   automatic_captions?: Record<string, Array<{ ext: string; url: string }>>;
 }
@@ -79,9 +107,6 @@ export interface IAIService {
   analyzeSpecific(text: string): Promise<string>;
   getSummarySimple(): Promise<string>;
   getAnalyzeSimple(): Promise<string>;
-  handleSummarize(stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void>;
-  handleAnalyze(prompt: string, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void>;
-  handleGeneralChat(prompt: string, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void>;
 }
 
 /** 视频服务接口 */

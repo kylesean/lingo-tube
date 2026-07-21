@@ -1,91 +1,115 @@
 /**
- * 系统提示词和常量定义（中文）
+ * System prompts and UI constants for LingoTube.
+ * UI text is in English; AI prompts instruct the model to reply in Chinese
+ * for translation/learning purposes.
  */
 
-/** 应用名称 */
 export const APP_NAME = 'LingoTube';
 
-/** 系统提示词 */
+/** System prompts for AI interactions */
 export const SYSTEM_PROMPTS = {
-  /** 翻译提示词 */
-  translate: `你是英汉翻译助手。将用户提供的英文内容翻译成中文：
-- 单词：给出音标、词性、中文释义
-- 短语/句子：直接给出流畅的中文翻译
-必须用中文回复，保持简洁。`,
+  /** Word/phrase translation — optimized for small models like Gemma/Ollama */
+  translate: `You are an English-Chinese dictionary. Translate the user's text. Reply in Chinese.
 
-  /** 语法分析提示词 */
-  analyze: `你是英语语法专家。分析句子结构时：
-1. 拆解句子成分（主/谓/宾等）
-2. 说明核心语法点（时态、从句等）
-3. 解释难点词汇（如有）
-输出紧凑，适合快速阅读。`,
+IMPORTANT: Do NOT use numbered lists (1. 2. 3.). Do NOT use bullet points.
 
-  /** 视频摘要提示词 */
-  summarize: `你是内容分析师。根据字幕提炼视频要点：
-- 主题：一句话概括
-- 要点：3-5 个核心内容（简短陈述）
-- 表达：值得学习的英文表达及中文释义
-直接输出内容。`,
+For a single word, output EXACTLY in this format (4 lines, no numbers):
+/phonetic/ pos.
+Chinese meaning
+Example: an English sentence.
+Chinese translation of the example.
 
-  /** 通用对话提示词 */
-  general: `你是英语学习助手，帮助用户理解视频中的英语内容。回复简洁实用。`
+For a phrase or sentence, just output the Chinese translation directly.
+
+Be concise. No extra text.`,
+
+  /** Grammar analysis — detailed but scannable */
+  analyze: `You are an English grammar expert helping a Chinese-speaking learner. Analyze the given sentence:
+
+1. **Sentence structure**: Break down subject, verb, object, clauses
+2. **Key grammar points**: Tense, voice, clause type, special constructions
+3. **Vocabulary notes**: Explain any difficult words or idioms
+4. **Paraphrase**: Rewrite the sentence in simpler English (optional)
+
+Use Chinese for explanations. Keep it structured and easy to scan.`,
+
+  /** Video summary — learning-focused */
+  summarize: `You are a content analyst helping an English learner. Based on the video subtitles, provide:
+
+## Summary
+- **Topic**: One-sentence overview
+- **Key Points**: 3-5 bullet points of core content
+
+## Language Learning
+- **Useful Expressions**: 3-5 notable English phrases/idioms from the video, each with:
+  - The original English expression
+  - Chinese meaning
+  - Brief usage note
+
+Reply in Chinese. Be concise and practical.`,
+
+  /** General chat */
+  general: `You are an English learning assistant. Help the user understand English content from videos. Reply in Chinese. Be concise and practical.`
 };
 
-/** 用户界面文本 */
+/** UI text (English) */
 export const UI_TEXT = {
-  // 按钮文本
-  watch: '播放',
-  summarize: 'AI 摘要',
-  analyze: 'AI 语法分析',
-  openInBrowser: '在浏览器中打开',
+  // Buttons
+  watch: 'Play',
+  summarize: 'AI Summary',
+  analyze: 'Grammar Analysis',
+  openInBrowser: 'Open in Browser',
+  repeat: 'Repeat',
+  saveWord: 'Save',
 
-  // 占位符文本
-  inputPlaceholder: '输入 YouTube 视频链接或 ID',
-  subtitlePlaceholder: '字幕将在此处显示...',
-  videoPlaceholder: '粘贴 YouTube 链接开始学习',
+  // Placeholders
+  inputPlaceholder: 'Paste a YouTube link or video ID',
+  subtitlePlaceholder: 'Subtitles will appear here...',
+  videoPlaceholder: 'Paste a YouTube link to start learning',
 
-  // 状态提示
-  loading: '加载中...',
-  aiThinking: 'AI 正在分析中...',
-  aiResult: 'AI 分析结果',
+  // Status
+  loading: 'Loading...',
+  aiThinking: 'AI is analyzing...',
+  aiResult: 'AI Result',
 
-  // 功能文本
-  loopSentence: '循环当前句',
+  // Features
+  loopSentence: 'Loop Sentence',
+  speed: 'Speed',
+  vocabulary: 'Vocabulary',
+  noVocabulary: 'No saved words yet. Click the star icon when translating a word to save it.',
 
-  // 激活消息
-  activating: '[@yt] LingoTube 正在激活...',
-  activated: '[@yt] LingoTube 激活成功！',
-
-  // 欢迎消息
-  welcomeMessage: 'LingoTube 助手已就绪！打开侧边栏开始学习。'
+  // Activation
+  activating: 'LingoTube is activating...',
+  activated: 'LingoTube activated successfully!',
+  welcomeMessage: 'LingoTube is ready! Open the sidebar to start learning.'
 };
 
-/** 错误消息 */
+/** Error messages */
 export const ERROR_MESSAGES = {
-  invalidVideoId: '无效的 YouTube 视频链接或 ID',
-  streamFailed: '获取视频流失败',
-  aiConfigMissing: ` AI 配置缺失
+  invalidVideoId: 'Invalid YouTube link or video ID',
+  streamFailed: 'Failed to fetch video stream',
+  aiConfigMissing: `AI configuration missing.
 
-  ** 检测结果：**
-• IDE 内置 AI： 不可用
-• 自定义 API： 未配置
+**Detected:**
+- Built-in IDE AI: Not available
+- Custom API: Not configured
 
-  ** 解决方案：**
-    请在设置中配置自定义 API 密钥。`,
-  noVideoContext: '请先播放一个视频',
-  networkError: '网络请求失败，请检查网络连接'
+**Solution:**
+Please configure a custom API key in settings.`,
+  noVideoContext: 'Please play a video first',
+  networkError: 'Network request failed. Please check your connection.'
 };
 
-/** 配置键名 */
+/** Configuration keys */
 export const CONFIG_KEYS = {
   namespace: 'lingoTube',
   apiKey: 'ai.apiKey',
   baseUrl: 'ai.baseUrl',
   model: 'ai.model',
-  timeout: 'ai.autoSelectFamilyTimeout'
+  timeout: 'ai.timeout'
 };
 
-/** 默认配置值 */
+/** Default configuration values */
 export const DEFAULT_CONFIG = {
   baseUrl: 'https://api.openai.com/v1',
   model: 'gpt-4o',

@@ -1,15 +1,10 @@
-/**
- * AI 服务 - 负责与 AI 模型交互，提供翻译、摘要、分析等功能
- */
-
 import * as vscode from 'vscode';
 import * as https from 'https';
 import * as http from 'http';
-import { IAIService, SubtitleData, SubtitleEvent } from '../types';
+import { IAIService, SubtitleLine } from '../types';
 import { SYSTEM_PROMPTS, ERROR_MESSAGES, CONFIG_KEYS, DEFAULT_CONFIG } from '../constants/prompts';
 import { logger } from './logger';
 
-/** HTTP request timeout for custom API calls (ms) */
 const API_REQUEST_TIMEOUT = 60000;
 
 export class AIService implements IAIService {
@@ -23,63 +18,71 @@ export class AIService implements IAIService {
       return;
     }
     try {
-      const data: SubtitleData = typeof subs === 'string' ? JSON.parse(subs) : (subs as SubtitleData);
-      this._currentSubs = (data.events || [])
-        .filter((e: SubtitleEvent) => e.segs)
-        .map((e: SubtitleEvent) => e.segs!.map(s => s.utf8).join(''))
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .replace(/>>/g, '')  // Remove >> markers
-        .replace(/\[.*?\]/g, '')  // Remove [Music], [Applause] etc.
-        .replace(/♪[^♪]*♪/g, '')  // Remove music notes
-        .replace(/\s+/g, ' ')  // Normalize spaces again
-        .trim();
+      const lines: SubtitleLine[] = typeof subs === 'string' ? JSON.parse(subs) : (subs as SubtitleLine[]);
+      this._currentSubs = lines.map(s => s.text).join(' ').replace(/\s+/g, ' ').trim();
     } catch {
       this._currentSubs = String(subs);
     }
   }
 
   async translate(text: string, context?: string): Promise<string> {
-    // Clean the text before sending to AI
     const cleanText = text.replace(/>>/g, '').replace(/\[.*?\]/g, '').trim();
     const cleanContext = context?.replace(/>>/g, '').replace(/\[.*?\]/g, '').trim();
 
-    // Detect if it's a single word or a phrase/sentence
     const isSingleWord = !/\s/.test(cleanText) && cleanText.length < 20;
 
     let prompt: string;
     if (isSingleWord) {
-      // Single word: ask for phonetic, part of speech, meaning
-      prompt = `单词: ${cleanText}\n\n请给出这个英语单词的：\n1. 音标\n2. 词性\n3. 中文释义\n4. 例句（可选，简短）\n\n格式简洁，一两行即可。`;
+      prompt = `Translate this word: "${cleanText}"\nGive: phonetic (IPA), part of speech, Chinese meaning, one example sentence with Chinese translation.\nNo numbered lists. No bullet points. Just plain text, one item per line.`;
     } else {
-      // Phrase or sentence: direct translation
       prompt = cleanContext
-        ? `翻译以下英文为中文：\n\n"${cleanText}"\n\n语境参考：${cleanContext}\n\n直接给出翻译即可，不需要解释。`
-        : `翻译以下英文为中文：\n\n"${cleanText}"\n\n直接给出翻译即可。`;
+        ? `Translate to Chinese: "${cleanText}"\nContext: ${cleanContext}\nJust give the translation.`
+        : `Translate to Chinese: "${cleanText}"\nJust give the translation.`;
     }
 
-    return this.callAI(prompt, SYSTEM_PROMPTS.translate);
+    const result = await this.callAI(prompt, SYSTEM_PROMPTS.translate);
+    return this.postProcessTranslation(result);
+  }
+
+  /**
+   * Post-process AI translation output to ensure clean formatting.
+   * Removes numbered lists, bullet points, and normalizes whitespace.
+   * Works even when small models (Gemma 4B etc.) ignore format instructions.
+   */
+  private postProcessTranslation(text: string): string {
+    if (!text) {
+      return text;
+    }
+
+    let result = text;
+
+    // Remove numbered list markers (1. 2. 3. etc.) at start of lines
+    result = result.replace(/^\s*\d+[\.\)、]\s*/gm, '');
+
+    // Remove bullet point markers
+    result = result.replace(/^\s*[-•*]\s*/gm, '');
+
+    // Remove "Phonetic:", "POS:", "Meaning:" etc. labels that some models add
+    result = result.replace(/^(phonetic|pos|part\s*of\s*speech|meaning|definition|example|translation|音标|词性|释义|例句|翻译)\s*[:：]\s*/gim, '');
+
+    // Remove markdown heading markers
+    result = result.replace(/^#+\s*/gm, '');
+
+    // Remove bold/italic markers
+    result = result.replace(/\*\*/g, '');
+    result = result.replace(/\*/g, '');
+
+    // Normalize whitespace: collapse multiple blank lines into one
+    result = result.replace(/\n{3,}/g, '\n\n');
+
+    // Trim each line and remove empty lines at start/end
+    result = result.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
+
+    return result.trim();
   }
 
   async analyzeSpecific(text: string): Promise<string> {
     return this.callAI(`请分析句子的语法结构: "${text}"`, SYSTEM_PROMPTS.analyze);
-  }
-
-  async handleSummarize(stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void> {
-    if (!this._currentSubs) {
-      stream.markdown(ERROR_MESSAGES.noVideoContext);
-      return;
-    }
-    const prompt = `视频标题: ${this._currentVideoTitle}\n字幕: ${this._currentSubs.substring(0, 5000)}`;
-    await this.callAI(prompt, SYSTEM_PROMPTS.summarize, stream, token);
-  }
-
-  async handleAnalyze(prompt: string, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void> {
-    await this.callAI(prompt, SYSTEM_PROMPTS.analyze, stream, token);
-  }
-
-  async handleGeneralChat(prompt: string, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<void> {
-    await this.callAI(prompt, SYSTEM_PROMPTS.general, stream, token);
   }
 
   async getSummarySimple(): Promise<string> {
@@ -100,21 +103,16 @@ export class AIService implements IAIService {
 
   private async callAI(
     prompt: string,
-    systemPrompt: string,
-    stream?: vscode.ChatResponseStream,
-    token?: vscode.CancellationToken
+    systemPrompt: string
   ): Promise<string> {
     const config = vscode.workspace.getConfiguration(CONFIG_KEYS.namespace);
     const apiKey = config.get<string>(CONFIG_KEYS.apiKey);
     const baseUrl = config.get<string>(CONFIG_KEYS.baseUrl);
 
-    // Use custom API if API key is set or a non-default base URL is configured
     if (apiKey || (baseUrl && !baseUrl.includes('openai.com'))) {
-      return this.callCustomAPI(prompt, systemPrompt, stream, token);
+      return this.callCustomAPI(prompt, systemPrompt);
     }
 
-    // Otherwise try built-in AI
-    let cts: vscode.CancellationTokenSource | undefined;
     try {
       const models = await vscode.lm.selectChatModels();
       const model = models[0];
@@ -128,33 +126,29 @@ export class AIService implements IAIService {
         vscode.LanguageModelChatMessage.User(prompt)
       ];
 
-      if (!token) {
-        cts = new vscode.CancellationTokenSource();
+      const cts = new vscode.CancellationTokenSource();
+      try {
+        const request = await model.sendRequest(messages, {}, cts.token);
+        let result = '';
+        for await (const chunk of request.text) {
+          result += chunk;
+        }
+        return result;
+      } finally {
+        cts.dispose();
       }
-
-      const request = await model.sendRequest(messages, {}, token ?? cts!.token);
-      let result = '';
-      for await (const chunk of request.text) {
-        stream?.markdown(chunk);
-        result += chunk;
-      }
-      return result;
     } catch (err) {
       logger.error('Built-in AI failed:', err);
       return ERROR_MESSAGES.aiConfigMissing;
-    } finally {
-      cts?.dispose();
     }
   }
 
   private async callCustomAPI(
     prompt: string,
-    systemPrompt: string,
-    stream?: vscode.ChatResponseStream,
-    token?: vscode.CancellationToken
+    systemPrompt: string
   ): Promise<string> {
     const config = vscode.workspace.getConfiguration(CONFIG_KEYS.namespace);
-    const apiKey = config.get<string>(CONFIG_KEYS.apiKey) || 'none';
+    const apiKey = config.get<string>(CONFIG_KEYS.apiKey);
     const baseUrl = config.get<string>(CONFIG_KEYS.baseUrl) || DEFAULT_CONFIG.baseUrl;
     const model = config.get<string>(CONFIG_KEYS.model) || DEFAULT_CONFIG.model;
 
@@ -163,16 +157,16 @@ export class AIService implements IAIService {
       const client = isHttps ? https : http;
       const url = `${baseUrl}/chat/completions`.replace(/\/+chat\//, '/chat/');
 
-      const options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        }
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
       };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      const options = { method: 'POST', headers };
 
       const req = client.request(url, options, (res) => {
-        // Check HTTP status code
         if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
           let errorBody = '';
           res.on('data', (chunk) => errorBody += chunk.toString());
@@ -202,7 +196,6 @@ export class AIService implements IAIService {
                 const content = data.choices[0]?.delta?.content || data.choices[0]?.message?.content;
                 if (content) {
                   result += content;
-                  stream?.markdown(content);
                 }
               } catch {
                 // Ignore parse errors from incomplete SSE chunks
@@ -218,7 +211,6 @@ export class AIService implements IAIService {
         reject(err);
       });
 
-      // Request timeout
       req.setTimeout(API_REQUEST_TIMEOUT, () => {
         logger.warn('API 请求超时，已取消');
         req.destroy(new Error('API request timeout'));
@@ -233,7 +225,6 @@ export class AIService implements IAIService {
         stream: true
       }));
       req.end();
-      token?.onCancellationRequested(() => req.destroy());
     });
   }
 }

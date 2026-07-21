@@ -3,18 +3,11 @@
  */
 
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { UI_TEXT } from '../constants/prompts';
 
-/**
- * Generate a random nonce for Content Security Policy
- */
 function getNonce(): string {
-  let text = '';
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 32; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+  return crypto.randomBytes(16).toString('hex');
 }
 
 /**
@@ -53,10 +46,33 @@ export function generateWebviewContent(webview: vscode.Webview, extensionUri: vs
   ${getSearchSection()}
   <div class="ai-toolbar">
     <button id="aiSummarizeBtn">${UI_TEXT.summarize}</button>
+    <div class="speed-control">
+      <span class="speed-label">${UI_TEXT.speed}:</span>
+      <select id="speedSelect">
+        <option value="0.5">0.5x</option>
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+        <option value="2">2x</option>
+      </select>
+    </div>
+    <button id="vocabBtn" class="vocab-toggle" title="${UI_TEXT.vocabulary}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+      <span id="vocabCount">0</span>
+    </button>
   </div>
   <div id="ai-result-panel">
     <div class="panel-header"><span>AI Result</span><button class="panel-close" data-target="ai-result-panel">x</button></div>
     <div class="panel-content"></div>
+  </div>
+  <div id="vocab-panel">
+    <div class="panel-header"><span>${UI_TEXT.vocabulary}</span><button class="panel-close" data-target="vocab-panel">x</button></div>
+    <div class="panel-content" id="vocabList">
+      <div class="vocab-empty">${UI_TEXT.noVocabulary}</div>
+    </div>
   </div>
   <div class="video-container" id="player">
     <div style="color:var(--vscode-descriptionForeground); text-align:center; padding-top:15%">${UI_TEXT.videoPlaceholder}</div>
@@ -64,7 +80,17 @@ export function generateWebviewContent(webview: vscode.Webview, extensionUri: vs
   <div class="subtitle-panel">
     <div id="subtitlePanel" class="subtitle-list"></div>
     <div id="translateTooltip" class="translate-tooltip">
-      <div class="tooltip-header"><span>Translation</span><button class="tooltip-close" id="tooltipClose">x</button></div>
+      <div class="tooltip-header">
+        <span>Translation</span>
+        <div class="tooltip-actions">
+          <button class="tooltip-save" id="tooltipSave" title="${UI_TEXT.saveWord}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </button>
+          <button class="tooltip-close" id="tooltipClose">x</button>
+        </div>
+      </div>
       <div class="tooltip-content"></div>
     </div>
   </div>
@@ -204,7 +230,11 @@ button:hover { background: var(--accent-hover); }
   color: #6A9955 !important;
   padding: 1px 16px !important;
   line-height: 1.2 !important;
-  border-left-width: 2px !important;
+}
+
+.camouflage-mode .subtitle-time {
+  color: #6A9955 !important;
+  opacity: 0.6 !important;
 }
 
 .camouflage-mode .subtitle-line::before {
@@ -213,9 +243,8 @@ button:hover { background: var(--accent-hover); }
 }
 
 .camouflage-mode .subtitle-line.active {
-  background: rgba(106, 153, 85, 0.05) !important;
+  background: rgba(106, 153, 85, 0.08) !important;
   color: #85c46c !important;
-  border-left-color: #6A9955 !important;
 }
 
 .camouflage-mode .translate-tooltip,
@@ -273,6 +302,7 @@ button:hover { background: var(--accent-hover); }
   display: flex;
   gap: 8px;
   border-bottom: 1px solid var(--border);
+  align-items: center;
 }
 
 .ai-toolbar button {
@@ -281,6 +311,98 @@ button:hover { background: var(--accent-hover); }
   color: var(--vscode-button-secondaryForeground);
   padding: 4px;
   font-size: 11px;
+}
+
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.speed-label {
+  font-size: 11px;
+  color: var(--fg-desc);
+}
+
+.speed-control select {
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  padding: 2px 4px;
+  font-size: 11px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.vocab-toggle {
+  flex: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px !important;
+  font-size: 11px;
+}
+
+.vocab-toggle.active {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-focusBorder);
+}
+
+#vocab-panel {
+  margin: 8px 12px;
+  padding: 0;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-left: 4px solid #d4a017;
+  border-radius: var(--radius);
+  font-size: var(--font-size-ui);
+  display: none;
+  max-height: 280px;
+  overflow: hidden;
+}
+
+.vocab-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.vocab-item:last-child { border-bottom: none; }
+
+.vocab-word {
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+}
+
+.vocab-meaning {
+  color: var(--fg-desc);
+  font-size: 11px;
+  flex: 1;
+  margin-left: 8px;
+}
+
+.vocab-remove {
+  background: none;
+  border: none;
+  color: var(--fg-desc);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.vocab-remove:hover { color: var(--vscode-errorForeground); }
+
+.vocab-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--fg-desc);
+  font-size: 12px;
 }
 
 #ai-result-panel, #translation-info {
@@ -393,20 +515,51 @@ button:hover { background: var(--accent-hover); }
 }
 
 .subtitle-line {
-  padding: 8px 20px;
+  display: flex;
+  padding: 6px 16px;
   cursor: pointer;
   font-size: var(--font-size-sub);
   line-height: 1.6;
-  border-left: 3px solid transparent;
+  border-radius: 4px;
+  margin: 0 8px;
 }
 
 .subtitle-line:hover { background: var(--vscode-list-hoverBackground); }
 .subtitle-line.active {
-  background: var(--vscode-list-activeSelectionBackground);
-  color: var(--vscode-list-activeSelectionForeground);
-  border-left-color: var(--vscode-focusBorder);
-  font-weight: 500;
+  background: rgba(130, 100, 220, 0.15);
+  border-radius: 4px;
 }
+
+.subtitle-time {
+  flex-shrink: 0;
+  width: 52px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  padding-top: 2px;
+  user-select: none;
+}
+
+.subtitle-text {
+  flex: 1;
+  padding-left: 8px;
+}
+
+.sub-repeat {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--fg-desc);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  border-radius: 2px;
+}
+
+.subtitle-line:hover .sub-repeat { opacity: 0.6; }
+.sub-repeat:hover { opacity: 1 !important; color: var(--vscode-focusBorder); }
 
 .word { border-radius: 2px; padding: 0 2px; }
 .word:hover { background: var(--vscode-textLink-activeForeground); color: white; }
@@ -427,8 +580,8 @@ button:hover { background: var(--accent-hover); }
 .translate-tooltip {
   position: absolute;
   z-index: 1000;
-  max-width: 300px;
-  min-width: 180px;
+  max-width: 340px;
+  min-width: 220px;
   background: var(--bg-editor);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -459,6 +612,26 @@ button:hover { background: var(--accent-hover); }
   color: var(--fg-desc);
 }
 
+.tooltip-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tooltip-save {
+  background: none;
+  border: none;
+  color: var(--fg-desc);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 2px;
+}
+
+.tooltip-save:hover { color: #d4a017; }
+.tooltip-save.saved { color: #d4a017; }
+
 .tooltip-close {
   background: none;
   border: none;
@@ -476,12 +649,45 @@ button:hover { background: var(--accent-hover); }
 .tooltip-content {
   padding: 10px;
   line-height: 1.5;
-  max-height: 150px;
+  max-height: 220px;
   overflow-y: auto;
 }
 
 .tooltip-content .loading-spinner {
   margin: 5px auto;
+}
+
+/* Markdown styling inside tooltip */
+.tooltip-content .markdown-body h3 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vscode-textLink-foreground);
+}
+
+.tooltip-content .markdown-body h3:first-child {
+  margin-top: 0;
+}
+
+.tooltip-content .markdown-body p {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.tooltip-content .markdown-body strong {
+  color: var(--fg-main);
+}
+
+.tooltip-content .markdown-body em {
+  color: var(--fg-desc);
+  font-style: italic;
+}
+
+.tooltip-content .markdown-body code {
+  background: var(--vscode-textCodeBlock-background);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 11px;
 }
 `;
 }
@@ -518,23 +724,36 @@ const els = {
   subPanel: document.getElementById('subtitlePanel'),
   tooltip: document.getElementById('translateTooltip'),
   tooltipContent: document.querySelector('#translateTooltip .tooltip-content'),
-  aiPanel: document.getElementById('ai-result-panel')
+  aiPanel: document.getElementById('ai-result-panel'),
+  vocabPanel: document.getElementById('vocab-panel'),
+  vocabList: document.getElementById('vocabList'),
+  vocabCount: document.getElementById('vocabCount'),
+  speedSelect: document.getElementById('speedSelect')
 };
 
-// Track last click/selection position for tooltip
 let lastEventPos = { x: 0, y: 0 };
+let currentTranslateText = '';
 
 let state = {
   subs: [],
   videoId: null,
   streamUrl: null,
+  audioUrl: null,
+  container: '',
+  audioContainer: '',
   activeIndex: -1,
   currentTime: 0,
   listeningMode: false,
-  camouflageMode: false
+  camouflageMode: false,
+  vocabulary: []
 };
 
 let lastSaveTime = 0;
+
+// 分离音频流元素及其同步事件清理函数。
+// 注意：不能放进 state —— vscode.setState() 会序列化整个 state，DOM 对象无法结构化克隆。
+let audioEl = null;
+let syncCleanup = null;
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -544,16 +763,19 @@ function escapeHtml(str) {
   return str.replace(/[&<>"']/g, c => map[c]);
 }
 
-// Strip dangerous HTML tags from rendered markdown output
+// Whitelist-based HTML sanitizer for rendered markdown output
 function sanitizeHtml(html) {
-  return html
-    .replace(/<script[\\s\\S]*?<\\/script>/gi, '')
-    .replace(/<iframe[\\s\\S]*?<\\/iframe>/gi, '')
-    .replace(/<form[\\s\\S]*?<\\/form>/gi, '')
-    .replace(/<object[\\s\\S]*?>/gi, '')
-    .replace(/<embed[\\s\\S]*?>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\\w+\\s*=/gi, '');
+  var allowedTags = { p:1,br:1,hr:1,h1:1,h2:1,h3:1,h4:1,h5:1,h6:1,
+    strong:1,b:1,em:1,i:1,u:1,code:1,pre:1,ul:1,ol:1,li:1,
+    blockquote:1,a:1,span:1,div:1,table:1,thead:1,tbody:1,tr:1,th:1,td:1 };
+  html = html.replace(/<(script|iframe|form|object|embed|style|link|meta)[\\s\\S]*?<\\/\\1>/gi, '');
+  html = html.replace(/<(script|iframe|form|object|embed|style|link|meta)[^>]*\\/?>/gi, '');
+  html = html.replace(/\\s+on\\w+\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)/gi, '');
+  html = html.replace(/(?:href|src|action)\\s*=\\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '');
+  html = html.replace(/<\\/?([a-zA-Z][a-zA-Z0-9]*)\\b[^>]*>/g, function(match, tag) {
+    return allowedTags[tag.toLowerCase()] ? match.replace(/\\s+(style|class)\\s*=\\s*(?:"[^"]*"|'[^']*')/gi, '') : '';
+  });
+  return html;
 }
 
 // Restore persisted state only after the document is fully ready.
@@ -578,7 +800,7 @@ function restoreState() {
     vscode.postMessage({ type: 'camouflageState', value: true });
   }
   if (state.streamUrl) {
-    loadVideo(state.streamUrl, state.videoId, state.subs, state.currentTime);
+    loadVideo(state.streamUrl, state.audioUrl, state.videoId, state.subs, state.currentTime, state.container, state.audioContainer);
   }
 }
 
@@ -628,16 +850,138 @@ function save() {
   vscode.setState(state);
 }
 
-function loadVideo(url, id, subs, start) {
+// 将容器扩展名映射为 MIME 类型。
+// 官方 VS Code 的 Chromium 内核不含 AAC/H.264 解码器，若 source.type 误标为
+// video/mp4，元素会直接拒绝尝试本可播放的 WebM 流，因此必须按实际容器声明。
+function mimeFor(ext, kind) {
+  if (ext === 'webm') { return kind === 'audio' ? 'audio/webm' : 'video/webm'; }
+  if (ext === 'mp4' || ext === 'm4a') { return kind === 'audio' ? 'audio/mp4' : 'video/mp4'; }
+  return '';
+}
+
+// 音视频分离流同步：DASH 视频流不含音轨，由隐藏 <audio> 播放独立 Opus 流，
+// 视频元素作为主时钟，音频跟随。返回清理事件监听的函数。
+function attachAudioSync(v, a) {
+  let stalledByAudio = false;
+
+  const onPlay = () => {
+    a.currentTime = v.currentTime;
+    a.playbackRate = v.playbackRate;
+    a.volume = v.volume;
+    a.muted = v.muted;
+    a.play().catch(() => {});
+  };
+  const onPause = () => a.pause();
+  const onSeeked = () => { a.currentTime = v.currentTime; };
+  const onRate = () => { a.playbackRate = v.playbackRate; };
+  const onVolume = () => { a.volume = v.volume; a.muted = v.muted; };
+  // 双流长时间播放会缓慢漂移，超过阈值时拉回一次
+  const onTime = () => {
+    if (!v.seeking && !a.seeking && Math.abs(a.currentTime - v.currentTime) > 0.3) {
+      a.currentTime = v.currentTime;
+    }
+  };
+  const onEnded = () => a.pause();
+  // 音频流缓冲卡顿（弱网）时暂停视频等待，避免声画脱节
+  const onAudioWaiting = () => {
+    if (!v.paused) { stalledByAudio = true; v.pause(); }
+  };
+  const onAudioPlaying = () => {
+    if (stalledByAudio) {
+      stalledByAudio = false;
+      a.currentTime = v.currentTime;
+      v.play().catch(() => {});
+    }
+  };
+  // 音频解码失败（如官方 VS Code 遇到 AAC 兜底流）时放弃同步，让视频单独播放
+  const onAudioError = () => a.pause();
+
+  v.addEventListener('play', onPlay);
+  v.addEventListener('pause', onPause);
+  v.addEventListener('seeked', onSeeked);
+  v.addEventListener('ratechange', onRate);
+  v.addEventListener('volumechange', onVolume);
+  v.addEventListener('timeupdate', onTime);
+  v.addEventListener('ended', onEnded);
+  a.addEventListener('waiting', onAudioWaiting);
+  a.addEventListener('playing', onAudioPlaying);
+  a.addEventListener('error', onAudioError);
+
+  return () => {
+    v.removeEventListener('play', onPlay);
+    v.removeEventListener('pause', onPause);
+    v.removeEventListener('seeked', onSeeked);
+    v.removeEventListener('ratechange', onRate);
+    v.removeEventListener('volumechange', onVolume);
+    v.removeEventListener('timeupdate', onTime);
+    v.removeEventListener('ended', onEnded);
+    a.removeEventListener('waiting', onAudioWaiting);
+    a.removeEventListener('playing', onAudioPlaying);
+    a.removeEventListener('error', onAudioError);
+  };
+}
+
+function detachAudio() {
+  if (syncCleanup) { syncCleanup(); syncCleanup = null; }
+  if (audioEl) {
+    audioEl.pause();
+    audioEl.removeAttribute('src');
+    audioEl.load();
+    audioEl = null;
+  }
+}
+
+function loadVideo(url, audioUrl, id, subs, start, container, audioContainer) {
   state.streamUrl = url;
+  state.audioUrl = audioUrl || null;
   state.videoId = id;
-  const fileName = id ? 'video_' + id.substring(0, 8) + '.mp4' : 'stream_input.mp4';
-  els.player.innerHTML = '<video id="video-player" controls preload="auto"><source src="' + url + '" type="video/mp4"></video>' +
-    '<div class="stealth-placeholder"><span id="stealth-filename">' + fileName + '</span></div>';
+  state.container = container || '';
+  state.audioContainer = audioContainer || '';
+  const fileExt = container === 'webm' ? '.webm' : '.mp4';
+  const fileName = id ? 'video_' + id.substring(0, 8) + fileExt : 'stream_input' + fileExt;
+
+  detachAudio();
+
+  // Use DOM API to prevent HTML injection via URL
+  const video = document.createElement('video');
+  video.id = 'video-player';
+  video.controls = true;
+  video.preload = 'auto';
+  video.playsInline = true;
+  const source = document.createElement('source');
+  source.src = url;
+  const videoMime = mimeFor(container, 'video');
+  if (videoMime) { source.type = videoMime; }
+  video.appendChild(source);
+
+  const placeholder = document.createElement('div');
+  placeholder.className = 'stealth-placeholder';
+  const filenameSpan = document.createElement('span');
+  filenameSpan.id = 'stealth-filename';
+  filenameSpan.textContent = fileName;
+  placeholder.appendChild(filenameSpan);
+
+  els.player.innerHTML = '';
+  els.player.appendChild(video);
+  els.player.appendChild(placeholder);
+
   const v = document.getElementById('video-player');
-  
+
+  // 存在独立音频流（WebM/Opus 开放编码）时，创建隐藏音频元素并建立双流同步，
+  // 使去除 AAC/H.264 解码器的官方 VS Code 也能正常出声。
+  if (audioUrl) {
+    audioEl = new Audio();
+    audioEl.preload = 'auto';
+    const audioSource = document.createElement('source');
+    audioSource.src = audioUrl;
+    const audioMime = mimeFor(audioContainer, 'audio');
+    if (audioMime) { audioSource.type = audioMime; }
+    audioEl.appendChild(audioSource);
+    syncCleanup = attachAudioSync(v, audioEl);
+  }
+
   if (start) v.currentTime = start;
-  
+
   if (subs && subs.length > 0) {
     state.subs = subs;
     renderSubs();
@@ -647,7 +991,7 @@ function loadVideo(url, id, subs, start) {
     state.subs = [];
     els.subPanel.innerHTML = '<div style="color:var(--fg-desc);text-align:center;padding:20px;font-size:12px;">No subtitles available for this video.<br>Try another video with captions enabled.</div>';
   }
-  
+
   v.ontimeupdate = () => {
     const t = v.currentTime;
     updateActiveSub(t);
@@ -662,28 +1006,39 @@ function loadVideo(url, id, subs, start) {
   if (!start) v.play().catch(() => {});
 }
 
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
 function renderSubs() {
   els.subPanel.innerHTML = state.subs.map((s, i) => {
     const words = s.text.split(/(\\s+)/).map(seg => {
       if (seg.trim()) {
-        const clean = seg.replace(/[^a-zA-Z0-9']/g, '');
+        const clean = seg.replace(/[^a-zA-Z0-9'\\[\\]>]/g, '');
         return '<span class="word" data-word="' + escapeHtml(clean) + '" data-line="' + i + '">' + escapeHtml(seg) + '</span>';
       }
       return escapeHtml(seg);
     }).join('');
-    return '<div class="subtitle-line" id="sub-' + i + '" data-time="' + s.start + '">' + words + '</div>';
+    return '<div class="subtitle-line" id="sub-' + i + '" data-time="' + s.start + '">' +
+      '<span class="subtitle-time">' + formatTime(s.start) + '</span>' +
+      '<span class="subtitle-text">' + words + '</span>' +
+      '<button class="sub-repeat" data-idx="' + i + '" title="Repeat">&#x21BB;</button></div>';
   }).join('');
 }
 
 function updateActiveSub(t) {
-  const offset = 0.2;
-  const idx = state.subs.findIndex(s => (t + offset) >= s.start && (t + offset) < (s.start + (s.duration || 2)));
-  
+  // Use next subtitle's start as the end boundary to eliminate gaps
+  const idx = state.subs.findIndex((s, i) => {
+    const endBound = (i + 1 < state.subs.length) ? state.subs[i + 1].start : s.start + s.duration;
+    return t >= s.start && t < endBound;
+  });
+
   if (idx !== -1 && idx !== state.activeIndex) {
-    // Thoroughly remove active class from any previously active lines
-    const activeLines = els.subPanel.querySelectorAll('.subtitle-line.active');
-    activeLines.forEach(l => l.classList.remove('active'));
-    
+    const prev = document.getElementById('sub-' + state.activeIndex);
+    if (prev) prev.classList.remove('active');
+
     state.activeIndex = idx;
     const cur = document.getElementById('sub-' + idx);
     if (cur) {
@@ -697,14 +1052,13 @@ function jump(t, i) {
   const v = document.getElementById('video-player');
   if (v) {
     v.currentTime = t;
-    // Clear all active classes before setting new one via updateActiveSub (or directly)
-    const activeLines = els.subPanel.querySelectorAll('.subtitle-line.active');
-    activeLines.forEach(l => l.classList.remove('active'));
-    
+    const prev = document.getElementById('sub-' + state.activeIndex);
+    if (prev) prev.classList.remove('active');
+
     state.activeIndex = i;
     const cur = document.getElementById('sub-' + i);
     if (cur) cur.classList.add('active');
-    
+
     v.play().catch(() => {});
     save();
   }
@@ -793,6 +1147,19 @@ els.subPanel.onclick = (e) => {
     return;
   }
   
+  // Click on repeat button
+  const r = e.target.closest('.sub-repeat');
+  if (r) {
+    e.stopPropagation();
+    const idx = parseInt(r.dataset.idx);
+    const sub = state.subs[idx];
+    if (sub) {
+      const v = document.getElementById('video-player');
+      if (v) { v.currentTime = sub.start; v.play().catch(() => {}); }
+    }
+    return;
+  }
+
   // Click on subtitle line to jump
   const l = e.target.closest('.subtitle-line');
   if (l) {
@@ -817,11 +1184,70 @@ document.getElementById('aiSummarizeBtn').onclick = () => {
   vscode.postMessage({ type: 'aiAction', value: 'summarize' });
 };
 
+// Playback speed control
+els.speedSelect.onchange = () => {
+  const v = document.getElementById('video-player');
+  if (v) v.playbackRate = parseFloat(els.speedSelect.value);
+};
+
+// Vocabulary panel toggle
+document.getElementById('vocabBtn').onclick = () => {
+  const visible = els.vocabPanel.style.display === 'block';
+  els.vocabPanel.style.display = visible ? 'none' : 'block';
+  document.getElementById('vocabBtn').classList.toggle('active', !visible);
+};
+
+// Save text to vocabulary (supports words, phrases, and sentences)
+document.getElementById('tooltipSave').onclick = () => {
+  if (!currentTranslateText) return;
+  const text = currentTranslateText.trim();
+  const meaning = els.tooltipContent.textContent || '';
+
+  // Check if already saved
+  if (state.vocabulary.find(v => v.word.toLowerCase() === text.toLowerCase())) {
+    return;
+  }
+
+  state.vocabulary.push({ word: text, meaning: meaning.substring(0, 120) });
+  vscode.postMessage({ type: 'saveVocabulary', vocabulary: state.vocabulary });
+  renderVocabulary();
+
+  // Visual feedback
+  document.getElementById('tooltipSave').classList.add('saved');
+  setTimeout(() => document.getElementById('tooltipSave').classList.remove('saved'), 1000);
+};
+
+function renderVocabulary() {
+  els.vocabCount.textContent = state.vocabulary.length;
+  if (state.vocabulary.length === 0) {
+    els.vocabList.innerHTML = '<div class="vocab-empty">No saved items yet. Click the star icon when translating any text to save it.</div>';
+    return;
+  }
+  els.vocabList.innerHTML = state.vocabulary.map((v, i) =>
+    '<div class="vocab-item">' +
+    '<span class="vocab-word" title="' + escapeHtml(v.word) + '">' + escapeHtml(v.word.length > 30 ? v.word.substring(0, 30) + '...' : v.word) + '</span>' +
+    '<span class="vocab-meaning" title="' + escapeHtml(v.meaning) + '">' + escapeHtml(v.meaning.length > 50 ? v.meaning.substring(0, 50) + '...' : v.meaning) + '</span>' +
+    '<button class="vocab-remove" data-idx="' + i + '" title="Remove">x</button>' +
+    '</div>'
+  ).join('');
+
+  els.vocabList.querySelectorAll('.vocab-remove').forEach(btn => {
+    btn.onclick = () => {
+      state.vocabulary.splice(parseInt(btn.dataset.idx), 1);
+      vscode.postMessage({ type: 'saveVocabulary', vocabulary: state.vocabulary });
+      renderVocabulary();
+    };
+  });
+}
+
 // Close button handlers
 document.querySelectorAll('.panel-close').forEach(btn => {
   btn.onclick = () => {
     const targetId = btn.dataset.target;
     document.getElementById(targetId).style.display = 'none';
+    if (targetId === 'vocab-panel') {
+      document.getElementById('vocabBtn').classList.remove('active');
+    }
   };
 });
 
@@ -829,10 +1255,12 @@ window.addEventListener('message', e => {
   const m = e.data;
   if (m.type === 'playStream') {
     const v = document.getElementById('video-player');
-    loadVideo(m.url, m.id, parseSubs(m.subs), (v && v.currentTime > 0) ? v.currentTime : 0);
+    loadVideo(m.url, m.audioUrl, m.id, m.subs, (v && v.currentTime > 0) ? v.currentTime : 0, m.container, m.audioContainer);
   } else if (m.type === 'translationResult') {
-    // Show translation in tooltip
+    currentTranslateText = m.original || '';
     els.tooltipContent.innerHTML = '<div class="markdown-body">' + sanitizeHtml(marked.parse ? marked.parse(m.translation) : escapeHtml(m.translation)) + '</div>';
+    // Reset save button state
+    document.getElementById('tooltipSave').classList.remove('saved');
   } else if (m.type === 'aiResponse') {
     els.aiPanel.style.display = 'block';
     els.aiPanel.querySelector('.panel-content').innerHTML = '<div class="markdown-body">' + sanitizeHtml(marked.parse ? marked.parse(m.content) : escapeHtml(m.content)) + '</div>';
@@ -840,8 +1268,22 @@ window.addEventListener('message', e => {
     els.player.innerHTML = '<div class="loading-spinner"></div>';
   } else if (m.type === 'error') {
     els.player.innerHTML = '<div style="color:red;padding:20px">' + escapeHtml(m.message) + '</div>';
+  } else if (m.type === 'vocabulary') {
+    state.vocabulary = m.vocabulary || [];
+    renderVocabulary();
   }
 });
+
+// Repeat current subtitle line
+function repeatCurrentLine() {
+  const sub = state.subs[state.activeIndex];
+  if (!sub) return;
+  const v = document.getElementById('video-player');
+  if (v) {
+    v.currentTime = sub.start;
+    v.play().catch(() => {});
+  }
+}
 
 function parseSubs(content) {
   try {

@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { WebviewMessage, VideoContext, IAIService, IVideoService } from '../types';
+import { WebviewMessage, VideoContext, VocabularyItem, IAIService, IVideoService } from '../types';
 import { ERROR_MESSAGES } from '../constants/prompts';
 import { generateWebviewContent } from '../views/webview-content';
 import { logger } from '../services/logger';
@@ -110,6 +110,10 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
       case 'openExternal':
         this.openInBrowser(message.id || '');
         break;
+
+      case 'saveVocabulary':
+        this.saveVocabulary(message.vocabulary || []);
+        break;
     }
   }
 
@@ -143,6 +147,9 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
         this._view?.webview.postMessage({
           type: 'playStream',
           url: result.streamUrl,
+          audioUrl: result.audioUrl,
+          container: result.container,
+          audioContainer: result.audioContainer,
           id: videoId,
           subs: result.subtitles
         });
@@ -211,14 +218,21 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
     logger.info('视频上下文已保存');
   }
 
-  /**
-   * 恢复视频上下文
-   */
+  private saveVocabulary(vocabulary: VocabularyItem[]): void {
+    this.context.globalState.update('lingoTube.vocabulary', vocabulary);
+    logger.info('生词本已保存, 共', vocabulary.length, '个单词');
+  }
+
   private restoreVideoContext(): void {
     const savedContext = this.context.globalState.get<VideoContext>('lingoTube.videoContext');
     if (savedContext) {
       logger.info('恢复视频上下文:', savedContext.title);
       this.aiService.updateContext(savedContext.title, savedContext.subs);
+    }
+
+    const vocabulary = this.context.globalState.get<VocabularyItem[]>('lingoTube.vocabulary') || [];
+    if (vocabulary.length > 0 && this._view) {
+      this._view.webview.postMessage({ type: 'vocabulary', vocabulary });
     }
   }
 }

@@ -1,43 +1,68 @@
-# 更新日志
+# Changelog
 
-本项目所有的显著变更都将记录在本文档中。
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.3.1] - 2026-07-22
+
+### Fixed
+- **Official VS Code Audio/Video Playback**: Resolved audio/video playback failure in official VS Code caused by missing proprietary AAC/H.264 codecs. Updated format selection in `yt-dlp` to prioritize open codecs (**WebM/VP9 video + WebM/Opus audio**) without requiring `ffmpeg`. Implemented synchronized playback via dual `<video>` and hidden `<audio>` media elements in the Webview.
+- **Media MIME Types**: Correctly set source MIME types according to container formats (WebM/MP4) to prevent WebM streams from being rejected.
+- **URL Handling**: Added `--no-playlist` parameter to `yt-dlp` invocations to handle video URLs containing playlist parameters (`list=`).
+
+## [1.3.0] - 2026-07-22
+
+### Changed
+- **Subtitle System Refactoring**: Introduced `SubtitleService` to handle subtitle parsing on the extension host side. Added natural phrase segmentation based on speech pauses (>=600ms), punctuation, and maximum word limit (15 words/line).
+
+### Security
+- Replaced `innerHTML` concatenation with native DOM creation APIs (`createElement`) to prevent potential XSS vectors.
+- Upgraded HTML sanitizer from blacklist to strict whitelist strategy.
+- Switched CSP nonce generator from `Math.random()` to `crypto.randomBytes()`.
+- Avoided sending `Authorization: Bearer none` headers when API keys are omitted.
+
+### Refactored
+- Modified `VideoService` error paths to return rejected promises instead of resolving with `null`.
+- Added friendly error detection and prompt when `yt-dlp` binary is missing (`ENOENT`).
+- Removed unused methods in `IAIService`.
+
+### Added
+- Added unit test suites for `SubtitleService` and `VideoService.extractVideoId()`.
 
 ## [1.2.3] - 2026-06-19
 
-### 修复
-- **Webview 启动崩溃**：修复插件 Webview 在恢复上次状态时偶发 `InvalidStateError: Failed to register a ServiceWorker: The document is in an invalid state` 错误。根本原因是顶层脚本在 `document.readyState` 仍为 `loading` 时就直接调用 `loadVideo()`，导致 Chromium 在文档未就绪期间触发媒体/网络请求。现已将状态恢复逻辑延迟至 `DOMContentLoaded` 事件后执行，彻底消除该竞态问题，无需再通过清除缓存来规避。
+### Fixed
+- **Webview Startup Crash**: Fixed `InvalidStateError: Failed to register a ServiceWorker` when restoring Webview state. Deferred state restoration logic to the `DOMContentLoaded` event to avoid triggering media requests while document state is still loading.
 
 ## [1.2.2] - 2026-01-13
 
-### 优化
-- **文档完善**：在 README.md 中增加了 `Alt + Q` 快捷键的使用说明及 CHANGELOG.md 的引用链接。
+### Documentation
+- Updated documentation with usage details for the `Alt+Q` keyboard shortcut and reference links to the changelog.
 
 ## [1.2.1] - 2026-01-12
 
-### 优化
-- **品牌简化**：精简了插件显示名称和描述，提升视觉整洁度。
+### Changed
+- Simplified display name and description for better visual clarity.
 
 ## [1.2.0] - 2026-01-12
 
-### 新增
-- **双隐私模式系统**：
-  - **听力模式 (Listening Mode)**：点击眼睛图标隐藏画面，保持原有学习 UI。
-  - **伪装模式 (Camouflage Mode)**：新增快捷键 **Alt + Q**，瞬间进入 Boss Key 状态，字幕伪装为代码注释样式。
+### Added
+- **Dual Privacy Modes**:
+  - **Listening Mode**: Hide video playback container while maintaining subtitle stream.
+  - **Camouflage Mode**: Toggle code-styled disguise using **Alt+Q** shortcut.
 
-### 优化
-- **UI 净化**：利用代码逻辑彻底隐藏了视图标题（视频播放器）及无意义的占位文本。
-- **快捷键优化**：由 Alt + B 改为更顺手且低冲突的 Alt + Q。
+### Changed
+- Changed privacy shortcut from `Alt+B` to `Alt+Q` to reduce shortcut collisions.
 
 ## [1.1.0] - 2026-01-12
 
-### 新增
-- **隐蔽模式**：点击眼睛图标可隐藏视频画面，只保留音频播放和字幕显示，让你在 IDE 中安心"学习"
-
-### 安全
-- 移除外部 CDN 依赖（marked.js 本地化），消除供应链攻击风险
-- 添加 Nonce-based Content Security Policy，增强 Webview 安全性
+### Security
+- Localized `marked.js` library to eliminate external CDN dependencies and supply chain risks.
+- Implemented nonce-based Content Security Policy (CSP) headers for Webview panels.
 
 ## [1.0.2] - 2026-01-12
 
-- 统一中文界面提示词
-- 规范化 CHANGELOG 记录
+### Added
+- Initial release with AI-assisted YouTube subtitle translation and syntax analysis.

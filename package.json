@@ -1,8 +1,8 @@
 {
     "name": "lingo-tube",
     "displayName": "LingoTube",
-    "description": "AI 驱动的 YouTube 英语学习助手，支持同步字幕、语法分析与隐蔽模式。",
-    "version": "1.2.4",
+    "description": "AI-powered YouTube English learning assistant with synchronized subtitles, grammar analysis, and stealth mode.",
+    "version": "1.3.1",
     "engines": {
         "vscode": "^1.90.0"
     },
@@ -64,22 +64,22 @@
                 "lingoTube.ai.apiKey": {
                     "type": "string",
                     "default": "",
-                    "description": "自定义 AI API 密钥（OpenAI 兼容协议）。如果为空，将优先使用 IDE 内置 AI。"
+                    "description": "API Key for your AI service. Required for most IDEs. For Ollama, any value works (e.g. 'ollama'). For OpenAI, DeepSeek, etc., enter your actual API key. Leave empty only if using VS Code with Copilot enabled."
                 },
                 "lingoTube.ai.baseUrl": {
                     "type": "string",
                     "default": "https://api.openai.com/v1",
-                    "description": "自定义 AI 服务的接口地址。"
+                    "description": "Base URL of your AI service (OpenAI-compatible API). Examples: Ollama → http://localhost:11434/v1, DeepSeek → https://api.deepseek.com/v1"
                 },
                 "lingoTube.ai.model": {
                     "type": "string",
-                    "default": "gpt-4",
-                    "description": "AI 模型名称。"
+                    "default": "gpt-4o",
+                    "description": "Model ID / name. Examples: gpt-4o, deepseek-chat, qwen2.5:7b, google/gemma-3-1b-it, llama3.1:8b"
                 },
-                "lingoTube.ai.autoSelectFamilyTimeout": {
+                "lingoTube.ai.timeout": {
                     "type": "number",
-                    "default": 1000,
-                    "description": "自动检测 AI 模型时的超时时间（毫秒）。"
+                    "default": 60000,
+                    "description": "Request timeout in milliseconds (default: 60000 = 60 seconds)."
                 }
             }
         }
