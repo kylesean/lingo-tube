@@ -1,8 +1,8 @@
-# LingoTube - YouTube English Learning Assistant for VS Code & Forks
+# LingoTube - YouTube English Learning Assistant for VS Code Forks
 
 **English** | [中文](README.md)
 
-LingoTube is an extension designed for VS Code and its forks (such as Antigravity, Cursor, etc.), enabling you to practice English listening and learning directly within your editor.
+LingoTube is an extension designed for VS Code forks (such as Antigravity, Cursor, Qoder, etc.), enabling you to practice English listening and learning directly within your editor.
 
 Practice listening, lookup vocabulary, and analyze syntax in the sidebar during AI code generation or build wait times, without switching context to external browser windows.
 
@@ -12,7 +12,7 @@ Practice listening, lookup vocabulary, and analyze syntax in the sidebar during 
 ### Camouflage Mode
 ![LingoTube Camouflage Mode](media/stealth_mode.png)
 
-> **Playback Compatibility**: The official VS Code build omits proprietary AAC/H.264 codecs due to licensing. LingoTube extracts open media streams (WebM/VP9 video + Opus audio) from YouTube and synchronizes them separately, allowing smooth playback and audio in official VS Code. Videos without open streams fallback to MP4 (which continue to work seamlessly in Cursor, Antigravity, and other forks with built-in codecs).
+> **Playback Compatibility**: LingoTube extracts **MP4 progressive single-stream (itag 22/18, H.264+AAC)** via `yt-dlp`, with audio and video embedded in a single file for native browser playback — the most compatible and stable path. **Official VS Code is not supported**: its built-in Chromium kernel omits the proprietary AAC/H.264 decoders and cannot decode the MP4 streams LingoTube uses. Please use a fork IDE with built-in proprietary decoders (e.g. Antigravity, Cursor, Qoder) for the best playback experience.
 
 ## Features
 

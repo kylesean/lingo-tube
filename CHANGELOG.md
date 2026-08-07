@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-07
+
+### Removed
+- **撤销全部 VS Code 兼容 Hacks**：移除了为在官方 VS Code 中播放视频而引入的所有 hack——WebM/VP9+Opus 分离流选择、隐藏 `<audio>` 双流同步、按容器动态设置 MIME 类型、相关诊断日志等。视频播放回归至 v1.2.3 之前的稳定路径：以 `yt-dlp` 提取 **MP4 渐进式单流（itag 22/18）**，音画内嵌于同一文件，浏览器原生直播，无抖卡、无死锁。
+
+### Added
+- **明确不支持官方 VS Code**：官方 VS Code 内置的 Chromium 内核剔除了 AAC/H.264 专利解码器，无法解码 MP4 视频。本插件现明确面向内置专有解码器的 fork IDE（如 Antigravity、Cursor、Qoder 等），在这些 IDE 中可获得最稳定流畅的播放体验。
+
+### Changed
+- 格式选择简化为单一 MP4 渐进式单流；移除 `requested_formats`、`audioUrl`、`audioContainer` 等冗余字段与类型。
+
 ## [1.3.2] - 2026-07-22
 
 ### Changed

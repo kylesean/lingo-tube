@@ -738,9 +738,7 @@ let state = {
   subs: [],
   videoId: null,
   streamUrl: null,
-  audioUrl: null,
   container: '',
-  audioContainer: '',
   activeIndex: -1,
   currentTime: 0,
   listeningMode: false,
@@ -749,11 +747,6 @@ let state = {
 };
 
 let lastSaveTime = 0;
-
-// 分离音频流元素及其同步事件清理函数。
-// 注意：不能放进 state —— vscode.setState() 会序列化整个 state，DOM 对象无法结构化克隆。
-let audioEl = null;
-let syncCleanup = null;
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -800,7 +793,7 @@ function restoreState() {
     vscode.postMessage({ type: 'camouflageState', value: true });
   }
   if (state.streamUrl) {
-    loadVideo(state.streamUrl, state.audioUrl, state.videoId, state.subs, state.currentTime, state.container, state.audioContainer);
+    loadVideo(state.streamUrl, state.videoId, state.subs, state.currentTime, state.container);
   }
 }
 
@@ -825,10 +818,10 @@ const toggleCamouflage = () => {
   state.camouflageMode = !state.camouflageMode;
   document.body.classList.toggle('camouflage-mode', state.camouflageMode);
   document.getElementById('camouflageBtn').classList.toggle('active', state.camouflageMode);
-  
+
   // Notify extension to change side bar title
   vscode.postMessage({ type: 'camouflageState', value: state.camouflageMode });
-  
+
   save();
 };
 
@@ -850,97 +843,12 @@ function save() {
   vscode.setState(state);
 }
 
-// 将容器扩展名映射为 MIME 类型。
-// 官方 VS Code 的 Chromium 内核不含 AAC/H.264 解码器，若 source.type 误标为
-// video/mp4，元素会直接拒绝尝试本可播放的 WebM 流，因此必须按实际容器声明。
-function mimeFor(ext, kind) {
-  if (ext === 'webm') { return kind === 'audio' ? 'audio/webm' : 'video/webm'; }
-  if (ext === 'mp4' || ext === 'm4a') { return kind === 'audio' ? 'audio/mp4' : 'video/mp4'; }
-  return '';
-}
-
-// 音视频分离流同步：DASH 视频流不含音轨，由隐藏 <audio> 播放独立 Opus 流，
-// 视频元素作为主时钟，音频跟随。返回清理事件监听的函数。
-function attachAudioSync(v, a) {
-  let stalledByAudio = false;
-
-  const onPlay = () => {
-    a.currentTime = v.currentTime;
-    a.playbackRate = v.playbackRate;
-    a.volume = v.volume;
-    a.muted = v.muted;
-    a.play().catch(() => {});
-  };
-  const onPause = () => a.pause();
-  const onSeeked = () => { a.currentTime = v.currentTime; };
-  const onRate = () => { a.playbackRate = v.playbackRate; };
-  const onVolume = () => { a.volume = v.volume; a.muted = v.muted; };
-  // 双流长时间播放会缓慢漂移，超过阈值时拉回一次
-  const onTime = () => {
-    if (!v.seeking && !a.seeking && Math.abs(a.currentTime - v.currentTime) > 0.3) {
-      a.currentTime = v.currentTime;
-    }
-  };
-  const onEnded = () => a.pause();
-  // 音频流缓冲卡顿（弱网）时暂停视频等待，避免声画脱节
-  const onAudioWaiting = () => {
-    if (!v.paused) { stalledByAudio = true; v.pause(); }
-  };
-  const onAudioPlaying = () => {
-    if (stalledByAudio) {
-      stalledByAudio = false;
-      a.currentTime = v.currentTime;
-      v.play().catch(() => {});
-    }
-  };
-  // 音频解码失败（如官方 VS Code 遇到 AAC 兜底流）时放弃同步，让视频单独播放
-  const onAudioError = () => a.pause();
-
-  v.addEventListener('play', onPlay);
-  v.addEventListener('pause', onPause);
-  v.addEventListener('seeked', onSeeked);
-  v.addEventListener('ratechange', onRate);
-  v.addEventListener('volumechange', onVolume);
-  v.addEventListener('timeupdate', onTime);
-  v.addEventListener('ended', onEnded);
-  a.addEventListener('waiting', onAudioWaiting);
-  a.addEventListener('playing', onAudioPlaying);
-  a.addEventListener('error', onAudioError);
-
-  return () => {
-    v.removeEventListener('play', onPlay);
-    v.removeEventListener('pause', onPause);
-    v.removeEventListener('seeked', onSeeked);
-    v.removeEventListener('ratechange', onRate);
-    v.removeEventListener('volumechange', onVolume);
-    v.removeEventListener('timeupdate', onTime);
-    v.removeEventListener('ended', onEnded);
-    a.removeEventListener('waiting', onAudioWaiting);
-    a.removeEventListener('playing', onAudioPlaying);
-    a.removeEventListener('error', onAudioError);
-  };
-}
-
-function detachAudio() {
-  if (syncCleanup) { syncCleanup(); syncCleanup = null; }
-  if (audioEl) {
-    audioEl.pause();
-    audioEl.removeAttribute('src');
-    audioEl.load();
-    audioEl = null;
-  }
-}
-
-function loadVideo(url, audioUrl, id, subs, start, container, audioContainer) {
+function loadVideo(url, id, subs, start, container) {
   state.streamUrl = url;
-  state.audioUrl = audioUrl || null;
   state.videoId = id;
   state.container = container || '';
-  state.audioContainer = audioContainer || '';
-  const fileExt = container === 'webm' ? '.webm' : '.mp4';
+  const fileExt = '.mp4';
   const fileName = id ? 'video_' + id.substring(0, 8) + fileExt : 'stream_input' + fileExt;
-
-  detachAudio();
 
   // Use DOM API to prevent HTML injection via URL
   const video = document.createElement('video');
@@ -950,8 +858,7 @@ function loadVideo(url, audioUrl, id, subs, start, container, audioContainer) {
   video.playsInline = true;
   const source = document.createElement('source');
   source.src = url;
-  const videoMime = mimeFor(container, 'video');
-  if (videoMime) { source.type = videoMime; }
+  source.type = 'video/mp4';
   video.appendChild(source);
 
   const placeholder = document.createElement('div');
@@ -966,19 +873,6 @@ function loadVideo(url, audioUrl, id, subs, start, container, audioContainer) {
   els.player.appendChild(placeholder);
 
   const v = document.getElementById('video-player');
-
-  // 存在独立音频流（WebM/Opus 开放编码）时，创建隐藏音频元素并建立双流同步，
-  // 使去除 AAC/H.264 解码器的官方 VS Code 也能正常出声。
-  if (audioUrl) {
-    audioEl = new Audio();
-    audioEl.preload = 'auto';
-    const audioSource = document.createElement('source');
-    audioSource.src = audioUrl;
-    const audioMime = mimeFor(audioContainer, 'audio');
-    if (audioMime) { audioSource.type = audioMime; }
-    audioEl.appendChild(audioSource);
-    syncCleanup = attachAudioSync(v, audioEl);
-  }
 
   if (start) v.currentTime = start;
 
@@ -1068,19 +962,19 @@ function jump(t, i) {
 function showTooltip(x, y) {
   const panel = els.subPanel.getBoundingClientRect();
   const tooltip = els.tooltip;
-  
+
   // Position tooltip near click, but keep it within the panel
   let left = x - panel.left;
   let top = y - panel.top + 20;  // 20px below click
-  
+
   // Ensure tooltip doesn't overflow right edge
   if (left + 200 > panel.width) {
     left = Math.max(10, panel.width - 210);
   }
-  
+
   tooltip.style.left = left + 'px';
   tooltip.style.top = top + 'px';
-  
+
   els.tooltipContent.innerHTML = '<div class="loading-spinner"></div>';
   tooltip.classList.add('visible');
 }
@@ -1106,7 +1000,7 @@ els.subPanel.onmouseup = (e) => {
   if (text) {
     justSelected = true;
     showTooltip(e.clientX, e.clientY);
-    
+
     let context = '';
     if (sel.anchorNode && sel.anchorNode.parentElement) {
        const line = sel.anchorNode.parentElement.closest('.subtitle-line');
@@ -1117,9 +1011,9 @@ els.subPanel.onmouseup = (e) => {
          }
        }
     }
-    
+
     vscode.postMessage({ type: 'translate', text: text, context: context });
-    
+
     // Reset flag after a short delay (to allow click event to check it first)
     setTimeout(() => { justSelected = false; }, 50);
   }
@@ -1129,7 +1023,7 @@ els.subPanel.onmouseup = (e) => {
 els.subPanel.onclick = (e) => {
   // If we just made a selection, don't process click
   if (justSelected) return;
-  
+
   // Clear previous selection when clicking (not selecting)
   const sel = window.getSelection();
   if (sel.toString().trim()) {
@@ -1146,7 +1040,7 @@ els.subPanel.onclick = (e) => {
     vscode.postMessage({ type: 'translate', text: txt, context: state.subs[line]?.text });
     return;
   }
-  
+
   // Click on repeat button
   const r = e.target.closest('.sub-repeat');
   if (r) {
@@ -1255,7 +1149,7 @@ window.addEventListener('message', e => {
   const m = e.data;
   if (m.type === 'playStream') {
     const v = document.getElementById('video-player');
-    loadVideo(m.url, m.audioUrl, m.id, m.subs, (v && v.currentTime > 0) ? v.currentTime : 0, m.container, m.audioContainer);
+    loadVideo(m.url, m.id, m.subs, (v && v.currentTime > 0) ? v.currentTime : 0, m.container);
   } else if (m.type === 'translationResult') {
     currentTranslateText = m.original || '';
     els.tooltipContent.innerHTML = '<div class="markdown-body">' + sanitizeHtml(marked.parse ? marked.parse(m.translation) : escapeHtml(m.translation)) + '</div>';
@@ -1289,41 +1183,41 @@ function parseSubs(content) {
   try {
     const d = typeof content === 'string' ? JSON.parse(content) : content;
     if (!d || !d.events) return [];
-    
+
     // Step 1: Extract and clean all fragments
     const fragments = [];
     d.events.forEach(e => {
       if (!e.segs || e.segs.length === 0) return;
-      
+
       const startTime = e.tStartMs / 1000;
       const endTime = startTime + (e.dDurationMs || 0) / 1000;
-      
+
       let text = e.segs.map(s => s.utf8).join('');
       text = text
         .replace(/>>/g, '')
         .replace(/\\[.*?\\]/g, '')
         .replace(/\\n/g, ' ')
         .trim();
-      
+
       if (text.length > 0) {
         fragments.push({ start: startTime, end: endTime, text });
       }
     });
-    
+
     if (fragments.length === 0) return [];
-    
+
     // Step 2: Merge fragments into complete sentences
     const sentences = [];
     let current = { start: fragments[0].start, end: fragments[0].end, text: fragments[0].text };
-    
+
     for (let i = 1; i < fragments.length; i++) {
       const frag = fragments[i];
       const prevText = current.text.trim();
-      
+
       // Check if previous fragment ends a sentence
       const endsWithPunctuation = /[.!?]$/.test(prevText);
       const isLongEnough = prevText.length >= 40;
-      
+
       if (endsWithPunctuation && isLongEnough) {
         // Flush current sentence
         sentences.push({
@@ -1339,7 +1233,7 @@ function parseSubs(content) {
         current.end = frag.end;
       }
     }
-    
+
     // Don't forget the last sentence
     if (current.text.trim().length > 0) {
       sentences.push({
@@ -1348,10 +1242,10 @@ function parseSubs(content) {
         text: current.text.replace(/\\s+/g, ' ').trim()
       });
     }
-    
+
     return sentences;
-  } catch (e) { 
-    return []; 
+  } catch (e) {
+    return [];
   }
 }
 `;

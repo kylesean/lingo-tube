@@ -48,13 +48,13 @@ suite('VideoService.extractVideoId', () => {
 
   test('handles ID with hyphens and underscores', () => {
     assert.strictEqual(
-      service.extractVideoId('abc-_DEF1234'),
-      'abc-_DEF1234'
+      service.extractVideoId('abc-_DEF123'),
+      'abc-_DEF123'
     );
   });
 
   test('returns null for invalid input', () => {
-    assert.strictEqual(service.extractVideoId('not-a-video'), null);
+    assert.strictEqual(service.extractVideoId('not-a-video!'), null);
   });
 
   test('returns null for empty string', () => {

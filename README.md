@@ -1,8 +1,8 @@
-# LingoTube - YouTube English Learning Assistant for VS Code & Forks
+# LingoTube - YouTube English Learning Assistant for VS Code Forks
 
 [English](README_EN.md) | **中文**
 
-LingoTube 是一款内置于 VS Code 及其 Fork IDE（如 Antigravity、Cursor 等）的 YouTube 英语学习插件。
+LingoTube 是一款内置于 VS Code 系 Fork IDE（如 Antigravity、Cursor、Qoder 等）的 YouTube 英语学习插件。
 
 在等待 AI 代码生成或任务编译的间隙，无需切换至浏览器等外部应用，即可直接在 IDE 侧边栏完成 YouTube 视频精听、词汇查询与语法分析。
 
@@ -12,7 +12,7 @@ LingoTube 是一款内置于 VS Code 及其 Fork IDE（如 Antigravity、Cursor 
 ### 伪装模式 (Camouflage Mode)
 ![LingoTube 伪装演示](media/stealth_mode.png)
 
-> **播放兼容性说明**：官方 VS Code 内置的 Chromium 内核未包含 AAC/H.264 专利解码器。本插件优先提取 YouTube 开放编码流（WebM/VP9 视频 + Opus 音频）实现音视频分离同步播放，可在官方 VS Code 中正常出声出画。若极少数视频无开放编码流则会自动回退至 MP4（在内置了解码器的 Cursor、Antigravity 中不受影响）。
+> **播放兼容性说明**：本插件通过 `yt-dlp` 提取 **MP4 渐进式单流（itag 22/18，H.264+AAC）**，音画内嵌于同一文件，浏览器原生播放，兼容性最好、最稳定。**暂不支持官方 VS Code**——其内置 Chromium 内核剔除了 AAC/H.264 专利解码器，无法解码本插件使用的 MP4 视频。请使用内置专有解码器的 fork IDE（如 Antigravity、Cursor、Qoder 等）以获得最佳播放体验。
 
 ## 主要功能
 

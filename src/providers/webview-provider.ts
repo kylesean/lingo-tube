@@ -147,9 +147,7 @@ export class WebviewProvider implements vscode.WebviewViewProvider {
         this._view?.webview.postMessage({
           type: 'playStream',
           url: result.streamUrl,
-          audioUrl: result.audioUrl,
           container: result.container,
-          audioContainer: result.audioContainer,
           id: videoId,
           subs: result.subtitles
         });

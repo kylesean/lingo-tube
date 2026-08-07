@@ -8,22 +8,14 @@ export class VideoService implements IVideoService {
   private readonly timeout = 30000;
   private readonly subtitleTimeout = 10000;
   /**
-   * 格式选择策略（按优先级）：
-   * 1. WebM/VP9 视频 + WebM/Opus 音频（分离流）—— 全部为免专利开放编码，
-   *    官方 VS Code 等去除了 AAC/H.264 解码器的 Chromium 内核也能正常播放；
-   * 2. WebM 单文件渐进式流（itag 43 等，VP8+Vorbis）；
-   * 3. WebM 视频 + 任意最佳音频（个别视频无 Opus 时的兜底）；
-   * 4. 经典 MP4 渐进式流（itag 22/18）—— 供内置专有解码器的 fork（Cursor 等）兜底。
+   * 格式选择：仅使用 MP4 渐进式单流（itag 22/18，H.264+AAC 内嵌音轨）。
+   * 单文件、音画合成，浏览器原生播放无需 JS 双流同步，兼容性最好、最稳定。
    *
-   * 注意：选择 "video+audio" 组合时 yt-dlp 在 `-j` 模式下仅输出 JSON
-   * （不下载、不合并，因此无需安装 ffmpeg），分离的流地址位于
-   * 输出 JSON 的 requested_formats 字段中，由 Webview 侧做 A/V 同步。
+   * 注意：LingoTube 暂不支持官方 VS Code（其 Chromium 内核去除了 AAC/H.264
+   * 解码器，无法播放 MP4）。本插件面向内置专有解码器的 fork IDE
+   * （如 Antigravity / Cursor / Qoder 等）。
    */
-  private readonly formatSelector =
-    'bestvideo[ext=webm][height<=720]+bestaudio[ext=webm]' +
-    '/best[ext=webm][vcodec!=none][acodec!=none]' +
-    '/bestvideo[ext=webm][height<=720]+bestaudio' +
-    '/22/18';
+  private readonly formatSelector = '22/18';
   private readonly subtitleLangPriority = ['en', 'zh-Hans', 'zh-Hant', 'zh', 'en-orig'];
   private readonly subtitleService = new SubtitleService();
 
@@ -52,13 +44,8 @@ export class VideoService implements IVideoService {
             const info: YtDlpOutput = JSON.parse(stdout);
             const title = info.title || '';
 
-            // 组合选择（video+audio）时 yt-dlp 返回 requested_formats 分离流；
-            // 单一渐进式格式时 url 在顶层。
-            const formats = info.requested_formats ?? [];
-            const videoTrack = formats.find(f => f.url && f.vcodec && f.vcodec !== 'none');
-            const audioTrack = formats.find(f => f.url && f.acodec && f.acodec !== 'none');
-
-            const streamUrl = videoTrack?.url ?? info.url;
+            // 渐进式单流：音画内嵌于同一文件，url 位于 JSON 顶层。
+            const streamUrl = info.url;
 
             if (!streamUrl) {
               resolve(null);
@@ -73,9 +60,7 @@ export class VideoService implements IVideoService {
               streamUrl,
               title,
               subtitles,
-              audioUrl: audioTrack?.url,
-              container: videoTrack?.ext ?? info.ext,
-              audioContainer: audioTrack?.ext
+              container: info.ext
             });
           } catch (e) {
             logger.error('JSON 解析错误:', e);
