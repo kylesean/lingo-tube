@@ -25,7 +25,15 @@ export class VideoService implements IVideoService {
     return new Promise((resolve, reject) => {
       execFile(
         'yt-dlp',
-        ['-f', this.formatSelector, '--no-playlist', '-j', url],
+        [
+          '--extractor-args',
+          'youtube:player_client=android',
+          '-f',
+          this.formatSelector,
+          '--no-playlist',
+          '-j',
+          url
+        ],
         { timeout: this.timeout },
         async (error, stdout) => {
           if (error) {
