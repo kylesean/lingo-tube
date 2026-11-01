@@ -2,7 +2,7 @@
     "name": "lingo-tube",
     "displayName": "LingoTube",
     "description": "AI-powered YouTube English learning assistant with synchronized subtitles, grammar analysis, and stealth mode.",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "engines": {
         "vscode": "^1.90.0"
     },
